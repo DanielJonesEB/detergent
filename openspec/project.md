@@ -8,6 +8,7 @@ Detergent is a daemon that orchestrates coding agents in a concern-based pipelin
 - Git (version control, worktrees, notes)
 - YAML (configuration)
 - Claude Code CLI (default agent, configurable)
+- Ginkgo + Gomega (testing framework)
 
 ## Project Conventions
 
@@ -23,9 +24,11 @@ Detergent is a daemon that orchestrates coding agents in a concern-based pipelin
 - Git notes for audit trail
 
 ### Testing Strategy
-- Unit tests for graph validation, config parsing
-- Integration tests with mock agent
-- End-to-end tests with real git operations
+- **Framework:** Ginkgo + Gomega, BDD/RSpec style
+- **Structure:** `Describe`/`Context`/`It` blocks with descriptive specs
+- **Unit tests:** Graph validation, config parsing
+- **Integration tests:** Mock agent, git operations
+- **Style:** Favor readability; specs should read like documentation
 
 ### Git Workflow
 - Trunk-based development on `main`
