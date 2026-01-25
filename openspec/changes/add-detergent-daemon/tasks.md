@@ -1,29 +1,65 @@
 # Implementation Tasks
 
-## 1. Core Infrastructure
-- [ ] 1.1 Set up project structure (Go module, CLI framework)
-- [ ] 1.2 Implement YAML configuration parser
-- [ ] 1.3 Implement concern graph validation (cycle detection, reference validation)
+Each slice delivers end-to-end user value with an acceptance test driving the binary.
 
-## 2. Git Operations
-- [ ] 2.1 Implement worktree management (create, list, cleanup)
-- [ ] 2.2 Implement branch operations (create, fast-forward, push)
-- [ ] 2.3 Implement commit message formatting with concern tags
-- [ ] 2.4 Implement git notes for no-change audit trail
+## Slice 1: I can run the CLI
+- [ ] 1.1 Set up Go module, basic CLI structure (cobra or similar)
+- [ ] 1.2 `detergent --help` shows available commands
+- [ ] 1.3 `detergent --version` shows version
+- [ ] 1.4 **Acceptance test:** invoke binary, verify help output and exit code 0
 
-## 3. Daemon Core
-- [ ] 3.1 Implement branch watching (poll for new commits)
-- [ ] 3.2 Implement context assembly (diffs + commit messages)
-- [ ] 3.3 Implement agent invocation interface
-- [ ] 3.4 Implement main loop with error handling and retry
+## Slice 2: I can validate my config
+- [ ] 2.1 Define YAML config schema (concerns, watches, prompts)
+- [ ] 2.2 `detergent validate <config>` parses and validates config
+- [ ] 2.3 Reports clear errors for invalid YAML, missing fields, unknown references
+- [ ] 2.4 Detects cycles in concern graph
+- [ ] 2.5 **Acceptance test:** valid config exits 0, invalid configs exit non-zero with helpful message
 
-## 4. CLI Commands
-- [ ] 4.1 Implement `detergent run` (start daemon)
-- [ ] 4.2 Implement `detergent status` (graph visualization)
-- [ ] 4.3 Implement `detergent viz` (static graph display)
+## Slice 3: I can see my concern graph
+- [ ] 3.1 `detergent viz <config>` outputs ASCII DAG of concerns
+- [ ] 3.2 Shows concern names and what each watches
+- [ ] 3.3 **Acceptance test:** invoke viz, verify output matches expected graph structure
 
-## 5. Testing & Documentation
-- [ ] 5.1 Write integration tests with mock agent
-- [ ] 5.2 Write unit tests for graph validation
-- [ ] 5.3 Create example configuration files
-- [ ] 5.4 Write usage documentation
+## Slice 4: I can run one pass manually
+- [ ] 4.1 `detergent run --once <config>` processes pending commits once, then exits
+- [ ] 4.2 Creates worktree for concern if needed
+- [ ] 4.3 Creates output branch if needed (from watched branch)
+- [ ] 4.4 Assembles context (diffs, commit messages, prompt)
+- [ ] 4.5 Invokes agent CLI with context
+- [ ] 4.6 Commits agent changes with `[CONCERN]` tag and `Triggered-By:` trailer
+- [ ] 4.7 **Acceptance test:** set up git repo, push commit, run once, verify agent was invoked and commit appears on output branch
+
+## Slice 5: I can see what happened
+- [ ] 5.1 `detergent status <config>` shows concern states
+- [ ] 5.2 Shows last-processed commit per concern
+- [ ] 5.3 Shows status indicators (✓ caught up, ◯ pending, ✗ failed)
+- [ ] 5.4 **Acceptance test:** run once, then status, verify output reflects processed state
+
+## Slice 6: I can run continuously
+- [ ] 6.1 `detergent run <config>` polls at configurable interval
+- [ ] 6.2 Detects new commits and processes them
+- [ ] 6.3 Runs until interrupted (SIGINT/SIGTERM)
+- [ ] 6.4 **Acceptance test:** start daemon, push commit, verify processing, send SIGINT, verify clean exit
+
+## Slice 7: Concerns chain together
+- [ ] 7.1 Concern B watches concern A's output branch
+- [ ] 7.2 When A commits, B is triggered on next poll
+- [ ] 7.3 Context for B includes A's commit message (intent preservation)
+- [ ] 7.4 **Acceptance test:** config with A→B chain, push to source, verify both process in order
+
+## Slice 8: No-change reviews leave a trace
+- [ ] 8.1 When agent makes no changes, fast-forward output branch
+- [ ] 8.2 Add git note to processed commits: `[CONCERN] Reviewed, no changes needed`
+- [ ] 8.3 Downstream concerns still see the commits (branch advanced)
+- [ ] 8.4 **Acceptance test:** agent returns no changes, verify fast-forward and git note exists
+
+## Slice 9: One failure doesn't stop everything
+- [ ] 9.1 If agent fails, log error and mark concern as failed
+- [ ] 9.2 Don't advance last-seen commit (retry on next poll)
+- [ ] 9.3 Other concerns continue processing independently
+- [ ] 9.4 **Acceptance test:** config with A and B (independent), A's agent fails, verify B still processes
+
+## Slice 10: Parallel concerns run in parallel
+- [ ] 10.1 Independent concerns (no dependency) execute concurrently
+- [ ] 10.2 Dependent concerns wait for upstream to complete
+- [ ] 10.3 **Acceptance test:** config with parallel branches, verify concurrent execution (timing or log interleaving)
