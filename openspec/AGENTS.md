@@ -2,6 +2,49 @@
 
 Instructions for AI coding assistants using OpenSpec for spec-driven development.
 
+## Working with Beads
+
+This project uses **OpenSpec** for specs/proposals and **Beads (bd)** for issue tracking. They serve different purposes:
+
+| Tool | Purpose | Scope |
+|------|---------|-------|
+| **OpenSpec** | Design before coding | Single proposal lifecycle |
+| **Beads** | Track work state | Project-wide, persistent |
+
+### When to Use Each
+
+| Situation | Tool |
+|-----------|------|
+| New capability, breaking change, architecture | OpenSpec proposal |
+| Implementing an approved proposal | OpenSpec `tasks.md` |
+| Bug discovered during implementation | Beads issue |
+| Work that can't finish this session | Beads issue |
+| Multi-session epic | Beads epic (optional) |
+| Quick fix, typo, config tweak | Just do it |
+
+### The Handoff Pattern
+
+```
+OpenSpec proposal approved
+    ↓
+Work through tasks.md, checking boxes
+    ↓
+Discovered work → Beads issues (bd create)
+    ↓
+Session end → commit, bd sync, handoff
+    ↓
+All tasks.md done → archive proposal (openspec archive)
+```
+
+### Key Principle
+
+**OpenSpec `tasks.md` is the source of truth for *what* to build. Beads tracks *state* across sessions.**
+
+- Don't duplicate tasks.md into Beads issues—that's redundant
+- Use Beads for work that emerges *during* implementation (bugs, blockers, follow-ups)
+- Use Beads when you need dependencies between work items
+- Run `bd prime` for full Beads workflow context
+
 ## TL;DR Quick Checklist
 
 - Search existing work: `openspec spec list --long`, `openspec list` (use `rg` only for full-text search)

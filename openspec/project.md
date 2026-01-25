@@ -1,31 +1,49 @@
 # Project Context
 
 ## Purpose
-[Describe your project's purpose and goals]
+Detergent is a daemon that orchestrates coding agents in a concern-based pipeline. Each agent focuses on a single quality concern (security, deduplication, style, etc.). Changes flow through a directed graph of concerns, with Git providing the audit trail and intent preservation.
 
 ## Tech Stack
-- [List your primary technologies]
-- [e.g., TypeScript, React, Node.js]
+- Go (daemon implementation)
+- Git (version control, worktrees, notes)
+- YAML (configuration)
+- Claude Code CLI (default agent, configurable)
 
 ## Project Conventions
 
 ### Code Style
-[Describe your code style preferences, formatting rules, and naming conventions]
+- Go standard formatting (`gofmt`)
+- Error handling: wrap errors with context
+- Logging: structured logging with levels
 
 ### Architecture Patterns
-[Document your architectural decisions and patterns]
+- DAG for concern ordering
+- Polling model for branch watching
+- Worktree isolation per concern
+- Git notes for audit trail
 
 ### Testing Strategy
-[Explain your testing approach and requirements]
+- Unit tests for graph validation, config parsing
+- Integration tests with mock agent
+- End-to-end tests with real git operations
 
 ### Git Workflow
-[Describe your branching strategy and commit conventions]
+- Trunk-based development on `main`
+- Feature branches for significant changes
+- Commit messages: imperative mood, concise
 
 ## Domain Context
-[Add domain-specific knowledge that AI assistants need to understand]
+- **Concern**: A single-purpose agent focus (e.g., "fix security issues")
+- **Concern Graph**: DAG of concerns, upstream to downstream
+- **Intent Preservation**: Downstream agents respect upstream work via commit context
+- **Implicit Priority**: Position in graph implies precedence
 
 ## Important Constraints
-[List any technical, business, or regulatory constraints]
+- Must work with standard Git (no special server)
+- Must handle agent failures gracefully
+- Must not lose commits or create orphan branches
+- Must provide clear audit trail via git log
 
 ## External Dependencies
-[Document key external services, APIs, or systems]
+- Git CLI (2.20+ for worktree features)
+- Claude Code CLI (or configurable alternative)

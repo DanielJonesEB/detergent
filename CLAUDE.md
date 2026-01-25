@@ -24,22 +24,38 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 ## Tool Responsibilities
 
-| Tool | Use For | Examples |
-|------|---------|----------|
-| **OpenSpec** | High-level specs & proposals | New capabilities, breaking changes, architecture decisions |
-| **Beads (bd)** | Issue tracking & work items | Bugs, tasks, features, discovered work |
+| Tool | Purpose | Scope |
+|------|---------|-------|
+| **OpenSpec** | Design before coding | Single proposal lifecycle |
+| **Beads (bd)** | Track work state | Project-wide, persistent |
 
-**Key distinction:**
-- OpenSpec `tasks.md` = implementation checklist scoped to one proposal
-- Beads issues = project-wide work tracking with dependencies
+### Decision Tree
 
-**When proposing changes:** Use OpenSpec for the spec/design, then optionally create Beads issues for implementation tracking if the work spans multiple sessions or has dependencies.
+```
+New work request?
+├─ New capability / breaking change / architecture?
+│   └─ Create OpenSpec proposal → implement via tasks.md
+├─ Bug fix restoring intended behavior?
+│   └─ Just fix it (no proposal needed)
+├─ Work discovered during implementation?
+│   └─ Create Beads issue (bd create)
+├─ Can't finish this session?
+│   └─ Create Beads issue for handoff
+└─ Quick fix / typo / config?
+    └─ Just do it
+```
 
-## Issue Tracking (Beads)
+### Key Principle
 
-This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
+**OpenSpec `tasks.md` = what to build. Beads = state across sessions.**
 
-## Quick Reference
+- Don't duplicate tasks.md into Beads—that's redundant
+- Use Beads for emergent work (bugs, blockers, follow-ups)
+- Use Beads when you need dependencies between items
+
+## Beads Quick Reference
+
+Run `bd prime` for full workflow context.
 
 ```bash
 bd ready              # Find available work
@@ -47,6 +63,7 @@ bd show <id>          # View issue details
 bd update <id> --status in_progress  # Claim work
 bd close <id>         # Complete work
 bd sync               # Sync with git
+bd create --title="..." --type=bug|task|feature  # New issue
 ```
 
 ## Landing the Plane (Session Completion)
