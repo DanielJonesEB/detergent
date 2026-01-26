@@ -3,10 +3,10 @@
 Each slice delivers end-to-end user value with an acceptance test driving the binary.
 
 ## Slice 1: I can run the CLI
-- [ ] 1.1 Set up Go module, basic CLI structure (cobra or similar)
-- [ ] 1.2 `detergent --help` shows available commands
-- [ ] 1.3 `detergent --version` shows version
-- [ ] 1.4 **Acceptance test:** invoke binary, verify help output and exit code 0
+- [x] 1.1 Set up Go module, basic CLI structure (cobra or similar)
+- [x] 1.2 `detergent --help` shows available commands
+- [x] 1.3 `detergent --version` shows version
+- [x] 1.4 **Acceptance test:** invoke binary, verify help output and exit code 0
 
 ## Slice 2: I can validate my config
 - [ ] 2.1 Define YAML config schema (concerns, watches, prompts)

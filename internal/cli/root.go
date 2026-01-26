@@ -1,0 +1,38 @@
+package cli
+
+import (
+	"fmt"
+
+	"github.com/spf13/cobra"
+)
+
+// Version is set at build time via ldflags
+var Version = "dev"
+
+var rootCmd = &cobra.Command{
+	Use:   "detergent",
+	Short: "Orchestrate coding agents in a concern-based pipeline",
+	Long: `Detergent is a daemon that orchestrates coding agents through a directed
+graph of concerns. Each concern focuses on a single quality aspect (security,
+style, documentation, etc.) and processes code changes in sequence.
+
+Changes flow through the concern graph with Git providing the audit trail
+and intent preservation between agents.`,
+}
+
+func init() {
+	rootCmd.AddCommand(versionCmd)
+}
+
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Print the version number",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Printf("detergent %s\n", Version)
+	},
+}
+
+// Execute runs the root command
+func Execute() error {
+	return rootCmd.Execute()
+}
