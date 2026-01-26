@@ -1,0 +1,15 @@
+agent:
+  command: "echo"
+  args: ["no-op"]
+
+settings:
+  poll_interval: 10s
+  branch_prefix: "detergent/"
+
+concerns:
+  - name: security
+    watches: main
+    prompt: "Review for security vulnerabilities"
+  - name: docs
+    watches: security
+    prompt: "Update documentation for changes"

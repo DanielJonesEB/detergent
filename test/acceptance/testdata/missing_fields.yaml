@@ -1,0 +1,10 @@
+agent:
+  command: ""
+
+concerns:
+  - name: ""
+    watches: main
+    prompt: "do something"
+  - name: security
+    watches: ""
+    prompt: ""

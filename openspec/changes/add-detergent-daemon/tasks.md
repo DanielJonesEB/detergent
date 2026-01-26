@@ -9,11 +9,11 @@ Each slice delivers end-to-end user value with an acceptance test driving the bi
 - [x] 1.4 **Acceptance test:** invoke binary, verify help output and exit code 0
 
 ## Slice 2: I can validate my config
-- [ ] 2.1 Define YAML config schema (concerns, watches, prompts)
-- [ ] 2.2 `detergent validate <config>` parses and validates config
-- [ ] 2.3 Reports clear errors for invalid YAML, missing fields, unknown references
-- [ ] 2.4 Detects cycles in concern graph
-- [ ] 2.5 **Acceptance test:** valid config exits 0, invalid configs exit non-zero with helpful message
+- [x] 2.1 Define YAML config schema (concerns, watches, prompts)
+- [x] 2.2 `detergent validate <config>` parses and validates config
+- [x] 2.3 Reports clear errors for invalid YAML, missing fields, unknown references
+- [x] 2.4 Detects cycles in concern graph
+- [x] 2.5 **Acceptance test:** valid config exits 0, invalid configs exit non-zero with helpful message
 
 ## Slice 3: I can see my concern graph
 - [ ] 3.1 `detergent viz <config>` outputs ASCII DAG of concerns
