@@ -1,0 +1,16 @@
+agent:
+  command: "echo"
+
+concerns:
+  - name: security
+    watches: main
+    prompt: "Security review"
+  - name: style
+    watches: main
+    prompt: "Style check"
+  - name: docs
+    watches: security
+    prompt: "Documentation update"
+  - name: final-review
+    watches: docs
+    prompt: "Final review"

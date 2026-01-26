@@ -16,9 +16,9 @@ Each slice delivers end-to-end user value with an acceptance test driving the bi
 - [x] 2.5 **Acceptance test:** valid config exits 0, invalid configs exit non-zero with helpful message
 
 ## Slice 3: I can see my concern graph
-- [ ] 3.1 `detergent viz <config>` outputs ASCII DAG of concerns
-- [ ] 3.2 Shows concern names and what each watches
-- [ ] 3.3 **Acceptance test:** invoke viz, verify output matches expected graph structure
+- [x] 3.1 `detergent viz <config>` outputs ASCII DAG of concerns
+- [x] 3.2 Shows concern names and what each watches
+- [x] 3.3 **Acceptance test:** invoke viz, verify output matches expected graph structure
 
 ## Slice 4: I can run one pass manually
 - [ ] 4.1 `detergent run --once <config>` processes pending commits once, then exits
