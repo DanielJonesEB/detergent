@@ -54,10 +54,10 @@ Each slice delivers end-to-end user value with an acceptance test driving the bi
 - [x] 8.4 **Acceptance test:** agent returns no changes, verify fast-forward and git note exists
 
 ## Slice 9: One failure doesn't stop everything
-- [ ] 9.1 If agent fails, log error and mark concern as failed
-- [ ] 9.2 Don't advance last-seen commit (retry on next poll)
-- [ ] 9.3 Other concerns continue processing independently
-- [ ] 9.4 **Acceptance test:** config with A and B (independent), A's agent fails, verify B still processes
+- [x] 9.1 If agent fails, log error and mark concern as failed
+- [x] 9.2 Don't advance last-seen commit (retry on next poll)
+- [x] 9.3 Other concerns continue processing independently
+- [x] 9.4 **Acceptance test:** config with A and B (independent), A's agent fails, verify B still processes
 
 ## Slice 10: Parallel concerns run in parallel
 - [ ] 10.1 Independent concerns (no dependency) execute concurrently

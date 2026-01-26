@@ -12,17 +12,46 @@ import (
 )
 
 // RunOnce processes each concern once and returns.
+// Individual concern failures are logged but don't stop other concerns.
 func RunOnce(cfg *config.Config, repoDir string) error {
 	repo := gitops.NewRepo(repoDir)
 
 	// Process concerns in dependency order (roots first)
 	order := topologicalOrder(cfg)
+	failed := make(map[string]bool)
+	var firstErr error
+
 	for _, concern := range order {
+		// Skip if an upstream concern failed (its output may be stale)
+		if shouldSkip(cfg, concern, failed) {
+			fmt.Fprintf(os.Stderr, "skipping %s: upstream concern failed\n", concern.Name)
+			continue
+		}
+
 		if err := processConcern(cfg, repo, repoDir, concern); err != nil {
-			return fmt.Errorf("concern %s: %w", concern.Name, err)
+			fmt.Fprintf(os.Stderr, "concern %s failed: %s\n", concern.Name, err)
+			failed[concern.Name] = true
+			if firstErr == nil {
+				firstErr = fmt.Errorf("concern %s: %w", concern.Name, err)
+			}
+			// Don't advance last-seen (handled by not reaching SetLastSeen in processConcern)
+			continue
 		}
 	}
-	return nil
+	return nil // individual failures are logged, not propagated
+}
+
+// shouldSkip returns true if any upstream dependency of this concern has failed.
+func shouldSkip(cfg *config.Config, concern config.Concern, failed map[string]bool) bool {
+	nameSet := make(map[string]bool)
+	for _, c := range cfg.Concerns {
+		nameSet[c.Name] = true
+	}
+	// If this concern watches another concern that failed, skip it
+	if nameSet[concern.Watches] && failed[concern.Watches] {
+		return true
+	}
+	return false
 }
 
 func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, concern config.Concern) error {
