@@ -30,10 +30,10 @@ Each slice delivers end-to-end user value with an acceptance test driving the bi
 - [x] 4.7 **Acceptance test:** set up git repo, push commit, run once, verify agent was invoked and commit appears on output branch
 
 ## Slice 5: I can see what happened
-- [ ] 5.1 `detergent status <config>` shows concern states
-- [ ] 5.2 Shows last-processed commit per concern
-- [ ] 5.3 Shows status indicators (✓ caught up, ◯ pending, ✗ failed)
-- [ ] 5.4 **Acceptance test:** run once, then status, verify output reflects processed state
+- [x] 5.1 `detergent status <config>` shows concern states
+- [x] 5.2 Shows last-processed commit per concern
+- [x] 5.3 Shows status indicators (✓ caught up, ◯ pending, ✗ failed)
+- [x] 5.4 **Acceptance test:** run once, then status, verify output reflects processed state
 
 ## Slice 6: I can run continuously
 - [ ] 6.1 `detergent run <config>` polls at configurable interval
