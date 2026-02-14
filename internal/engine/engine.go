@@ -91,6 +91,11 @@ func RunOnceWithLogs(cfg *config.Config, repoDir string, logMgr *LogManager) err
 			c := level[0]
 			if failed.has(c.Watches) {
 				fmt.Fprintf(os.Stderr, "skipping %s: upstream concern failed\n", c.Name)
+				WriteStatus(repoDir, c.Name, &ConcernStatus{
+					State: "skipped",
+					Error: "upstream concern failed",
+					PID:   os.Getpid(),
+				})
 				continue
 			}
 			if err := processConcern(cfg, repo, repoDir, c, logMgr); err != nil {
@@ -103,6 +108,11 @@ func RunOnceWithLogs(cfg *config.Config, repoDir string, logMgr *LogManager) err
 			for _, c := range level {
 				if failed.has(c.Watches) {
 					fmt.Fprintf(os.Stderr, "skipping %s: upstream concern failed\n", c.Name)
+					WriteStatus(repoDir, c.Name, &ConcernStatus{
+						State: "skipped",
+						Error: "upstream concern failed",
+						PID:   os.Getpid(),
+					})
 					continue
 				}
 				wg.Add(1)
@@ -138,6 +148,7 @@ func (f *failedSet) has(name string) bool {
 }
 
 func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, concern config.Concern, logMgr *LogManager) error {
+	pid := os.Getpid()
 	watchedBranch := resolveWatchedBranch(cfg, concern)
 
 	// Get current HEAD of watched branch
@@ -152,15 +163,32 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 		return err
 	}
 	if lastSeen == head {
+		// Nothing new — write idle status
+		WriteStatus(repoDir, concern.Name, &ConcernStatus{
+			State:    "idle",
+			LastSeen: lastSeen,
+			PID:      pid,
+		})
 		return nil // nothing new
 	}
+
+	// Write running status
+	startedAt := nowRFC3339()
+	WriteStatus(repoDir, concern.Name, &ConcernStatus{
+		State:       "running",
+		StartedAt:   startedAt,
+		HeadAtStart: head,
+		LastSeen:    lastSeen,
+		PID:         pid,
+	})
 
 	outputBranch := cfg.Settings.BranchPrefix + concern.Name
 
 	// Ensure output branch exists
 	if !repo.BranchExists(outputBranch) {
 		if err := repo.CreateBranch(outputBranch, watchedBranch); err != nil {
-			return fmt.Errorf("creating output branch %s: %w", outputBranch, err)
+			return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
+				fmt.Errorf("creating output branch %s: %w", outputBranch, err))
 		}
 	}
 
@@ -168,46 +196,53 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 	wtPath := gitops.WorktreePath(repoDir, cfg.Settings.BranchPrefix, concern.Name)
 	if _, err := os.Stat(wtPath); os.IsNotExist(err) {
 		if err := os.MkdirAll(filepath.Dir(wtPath), 0755); err != nil {
-			return err
+			return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err, err)
 		}
 		if err := repo.CreateWorktree(wtPath, outputBranch); err != nil {
-			return fmt.Errorf("creating worktree: %w", err)
+			return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
+				fmt.Errorf("creating worktree: %w", err))
 		}
 	}
 
 	// Assemble context
 	context, err := assembleContext(repo, concern, lastSeen, head)
 	if err != nil {
-		return fmt.Errorf("assembling context: %w", err)
+		return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
+			fmt.Errorf("assembling context: %w", err))
 	}
 
 	// Get log file for this concern
 	logFile, err := logMgr.GetLogFile(concern.Name)
 	if err != nil {
-		return fmt.Errorf("getting log file: %w", err)
+		return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
+			fmt.Errorf("getting log file: %w", err))
 	}
 
 	// Write commit context header to log file
 	header := fmt.Sprintf("--- Processing %s at %s ---\n", head, time.Now().UTC().Format(time.RFC3339))
 	if _, err := logFile.WriteString(header); err != nil {
-		return fmt.Errorf("writing log header: %w", err)
+		return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
+			fmt.Errorf("writing log header: %w", err))
 	}
 
 	// Invoke agent in worktree
 	if err := invokeAgent(cfg, wtPath, context, logFile); err != nil {
-		return fmt.Errorf("invoking agent: %w", err)
+		return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
+			fmt.Errorf("invoking agent: %w", err))
 	}
 
 	// Check for changes and commit (or fast-forward if no changes)
 	changed, err := commitChanges(wtPath, concern, head)
 	if err != nil {
-		return fmt.Errorf("committing changes: %w", err)
+		return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
+			fmt.Errorf("committing changes: %w", err))
 	}
 
 	if !changed {
 		// No changes: fast-forward the output branch via merge in worktree
 		if err := fastForwardWorktree(wtPath, watchedBranch); err != nil {
-			return fmt.Errorf("fast-forwarding %s: %w", outputBranch, err)
+			return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
+				fmt.Errorf("fast-forwarding %s: %w", outputBranch, err))
 		}
 		// Add git note to each processed commit
 		commits, _ := repo.CommitsBetween(lastSeen, head)
@@ -218,7 +253,40 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 	}
 
 	// Update last-seen
-	return SetLastSeen(repoDir, concern.Name, head)
+	if err := SetLastSeen(repoDir, concern.Name, head); err != nil {
+		return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err, err)
+	}
+
+	// Write idle status with result
+	result := "noop"
+	if changed {
+		result = "modified"
+	}
+	WriteStatus(repoDir, concern.Name, &ConcernStatus{
+		State:       "idle",
+		LastResult:  result,
+		StartedAt:   startedAt,
+		CompletedAt: nowRFC3339(),
+		LastSeen:    head,
+		HeadAtStart: head,
+		PID:         pid,
+	})
+
+	return nil
+}
+
+// processConcernFailed writes a failed status and returns the wrapped error.
+func processConcernFailed(repoDir, concernName, startedAt, head, lastSeen string, pid int, origErr, wrappedErr error) error {
+	WriteStatus(repoDir, concernName, &ConcernStatus{
+		State:       "failed",
+		StartedAt:   startedAt,
+		CompletedAt: nowRFC3339(),
+		Error:       origErr.Error(),
+		LastSeen:    lastSeen,
+		HeadAtStart: head,
+		PID:         pid,
+	})
+	return wrappedErr
 }
 
 func resolveWatchedBranch(cfg *config.Config, concern config.Concern) string {
