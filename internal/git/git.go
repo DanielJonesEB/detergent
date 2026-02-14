@@ -51,27 +51,6 @@ func (r *Repo) CreateWorktree(path, branch string) error {
 	return err
 }
 
-// RemoveWorktree removes a git worktree.
-func (r *Repo) RemoveWorktree(path string) error {
-	_, err := r.run("worktree", "remove", "--force", path)
-	return err
-}
-
-// WorktreeList returns the list of worktree paths.
-func (r *Repo) WorktreeList() ([]string, error) {
-	out, err := r.run("worktree", "list", "--porcelain")
-	if err != nil {
-		return nil, err
-	}
-	var paths []string
-	for _, line := range strings.Split(out, "\n") {
-		if strings.HasPrefix(line, "worktree ") {
-			paths = append(paths, strings.TrimPrefix(line, "worktree "))
-		}
-	}
-	return paths, nil
-}
-
 // CommitsBetween returns commit hashes between two refs (exclusive of from, inclusive of to).
 // If from is empty, returns all commits up to `to`.
 func (r *Repo) CommitsBetween(from, to string) ([]string, error) {
@@ -101,21 +80,10 @@ func (r *Repo) DiffForCommit(hash string) (string, error) {
 	return r.run("diff", hash+"~1", hash)
 }
 
-// FastForwardBranch updates a branch ref to point at a new commit (fast-forward).
-func (r *Repo) FastForwardBranch(branch, targetCommit string) error {
-	_, err := r.run("branch", "-f", branch, targetCommit)
-	return err
-}
-
 // AddNote adds a git note to a commit under the "detergent" namespace.
 func (r *Repo) AddNote(commit, message string) error {
 	_, err := r.run("notes", "--ref=detergent", "add", "-f", "-m", message, commit)
 	return err
-}
-
-// GetNote reads the git note for a commit under the "detergent" namespace.
-func (r *Repo) GetNote(commit string) (string, error) {
-	return r.run("notes", "--ref=detergent", "show", commit)
 }
 
 // WorktreePath returns the expected worktree path for a concern.
