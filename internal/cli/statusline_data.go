@@ -123,6 +123,11 @@ func gatherStatuslineData(cfg *config.Config, repoDir string) StatuslineOutput {
 			}
 		}
 
+		// Normalize: idle + caught up + no last_result → noop
+		if cd.State == "idle" && cd.LastResult == "" && cd.LastSeen != "" && !cd.BehindHead {
+			cd.LastResult = "noop"
+		}
+
 		concerns = append(concerns, cd)
 	}
 
