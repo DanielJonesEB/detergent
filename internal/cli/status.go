@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -66,14 +68,20 @@ func followStatus(cfg *config.Config, repoDir string) error {
 	defer signal.Stop(sigCh)
 
 	interval := time.Duration(statusInterval * float64(time.Second))
+	var lastOutput string
 
 	for {
-		// Move cursor home and clear screen
-		fmt.Print("\033[H\033[2J")
-		fmt.Printf("Every %.1fs: detergent status\n\n", statusInterval)
-
-		if err := showStatus(cfg, repoDir); err != nil {
+		var buf bytes.Buffer
+		if err := renderStatus(&buf, cfg, repoDir); err != nil {
 			fmt.Fprintf(os.Stderr, "\nerror: %s\n", err)
+		}
+		output := buf.String()
+
+		if output != lastOutput {
+			fmt.Print("\033[H\033[2J")
+			fmt.Printf("Every %.1fs: detergent status\n\n", statusInterval)
+			fmt.Print(output)
+			lastOutput = output
 		}
 
 		select {
@@ -86,14 +94,18 @@ func followStatus(cfg *config.Config, repoDir string) error {
 }
 
 func showStatus(cfg *config.Config, repoDir string) error {
+	return renderStatus(os.Stdout, cfg, repoDir)
+}
+
+func renderStatus(w io.Writer, cfg *config.Config, repoDir string) error {
 	repo := gitops.NewRepo(repoDir)
 	nameSet := make(map[string]bool)
 	for _, c := range cfg.Concerns {
 		nameSet[c.Name] = true
 	}
 
-	fmt.Println("Concern Status")
-	fmt.Println("──────────────────────────────────────")
+	fmt.Fprintln(w, "Concern Status")
+	fmt.Fprintln(w, "──────────────────────────────────────")
 
 	for _, c := range cfg.Concerns {
 		watchedBranch := c.Watches
@@ -109,16 +121,16 @@ func showStatus(cfg *config.Config, repoDir string) error {
 		head, err := repo.HeadCommit(watchedBranch)
 		if err != nil {
 			// Branch might not exist yet
-			fmt.Printf("  ◯  %-20s  (not started - watched branch %s not found)\n", c.Name, watchedBranch)
+			fmt.Fprintf(w, "  ◯  %-20s  (not started - watched branch %s not found)\n", c.Name, watchedBranch)
 			continue
 		}
 
 		if lastSeen == "" {
-			fmt.Printf("  ◯  %-20s  pending (never processed)\n", c.Name)
+			fmt.Fprintf(w, "  ◯  %-20s  pending (never processed)\n", c.Name)
 		} else if lastSeen == head {
-			fmt.Printf("  ✓  %-20s  caught up at %s\n", c.Name, short(lastSeen))
+			fmt.Fprintf(w, "  ✓  %-20s  caught up at %s\n", c.Name, short(lastSeen))
 		} else {
-			fmt.Printf("  ◯  %-20s  pending (last: %s, head: %s)\n", c.Name, short(lastSeen), short(head))
+			fmt.Fprintf(w, "  ◯  %-20s  pending (last: %s, head: %s)\n", c.Name, short(lastSeen), short(head))
 		}
 	}
 
