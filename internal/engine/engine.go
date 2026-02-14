@@ -172,10 +172,10 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 		return nil // nothing new
 	}
 
-	// Write running status
+	// Write change-detected status
 	startedAt := nowRFC3339()
 	WriteStatus(repoDir, concern.Name, &ConcernStatus{
-		State:       "running",
+		State:       "change_detected",
 		StartedAt:   startedAt,
 		HeadAtStart: head,
 		LastSeen:    lastSeen,
@@ -225,11 +225,29 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 			fmt.Errorf("writing log header: %w", err))
 	}
 
+	// Write agent-started status
+	WriteStatus(repoDir, concern.Name, &ConcernStatus{
+		State:       "agent_running",
+		StartedAt:   startedAt,
+		HeadAtStart: head,
+		LastSeen:    lastSeen,
+		PID:         pid,
+	})
+
 	// Invoke agent in worktree
 	if err := invokeAgent(cfg, wtPath, context, logFile); err != nil {
 		return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
 			fmt.Errorf("invoking agent: %w", err))
 	}
+
+	// Write agent-succeeded status
+	WriteStatus(repoDir, concern.Name, &ConcernStatus{
+		State:       "committing",
+		StartedAt:   startedAt,
+		HeadAtStart: head,
+		LastSeen:    lastSeen,
+		PID:         pid,
+	})
 
 	// Check for changes and commit (or fast-forward if no changes)
 	changed, err := commitChanges(wtPath, concern, head)

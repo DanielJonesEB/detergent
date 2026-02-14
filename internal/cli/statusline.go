@@ -106,7 +106,13 @@ const (
 
 func statusSymbol(state, lastResult string) string {
 	switch state {
-	case "running":
+	case "change_detected":
+		return "◎"
+	case "agent_running":
+		return "⟳"
+	case "committing":
+		return "⟳"
+	case "running": // legacy
 		return "⟳"
 	case "failed":
 		return "✗"
@@ -131,7 +137,13 @@ func statusSymbol(state, lastResult string) string {
 
 func statusColor(state, lastResult string) string {
 	switch state {
-	case "running":
+	case "change_detected":
+		return ansiYellow
+	case "agent_running":
+		return ansiYellow
+	case "committing":
+		return ansiYellow
+	case "running": // legacy
 		return ansiYellow
 	case "failed":
 		return ansiRed
@@ -295,7 +307,8 @@ func rebaseHint(data StatuslineOutput, concerns map[string]ConcernData, downstre
 
 	// All concerns must be idle
 	for _, c := range concerns {
-		if c.State == "running" || c.State == "failed" {
+		switch c.State {
+		case "change_detected", "agent_running", "committing", "running", "failed", "pending":
 			return ""
 		}
 	}

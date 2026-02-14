@@ -113,6 +113,29 @@ func renderStatus(w io.Writer, cfg *config.Config, repoDir string) error {
 			watchedBranch = cfg.Settings.BranchPrefix + c.Watches
 		}
 
+		status, _ := engine.ReadStatus(repoDir, c.Name)
+
+		// If actively processing, show the granular state
+		if status != nil {
+			switch status.State {
+			case "change_detected":
+				fmt.Fprintf(w, "  ◎  %-20s  change detected at %s\n", c.Name, short(status.HeadAtStart))
+				continue
+			case "agent_running":
+				fmt.Fprintf(w, "  ⟳  %-20s  agent running (since %s)\n", c.Name, status.StartedAt)
+				continue
+			case "committing":
+				fmt.Fprintf(w, "  ⟳  %-20s  committing changes\n", c.Name)
+				continue
+			case "failed":
+				fmt.Fprintf(w, "  ✗  %-20s  failed: %s\n", c.Name, status.Error)
+				continue
+			case "skipped":
+				fmt.Fprintf(w, "  ⊘  %-20s  skipped: %s\n", c.Name, status.Error)
+				continue
+			}
+		}
+
 		lastSeen, err := engine.LastSeen(repoDir, c.Name)
 		if err != nil {
 			return err
