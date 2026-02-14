@@ -117,6 +117,12 @@ func renderStatus(w io.Writer, cfg *config.Config, repoDir string) error {
 
 		// If actively processing, show the granular state
 		if status != nil {
+			// Check for stale active states (process died)
+			if engine.IsActiveState(status.State) && !engine.IsProcessAlive(status.PID) {
+				fmt.Fprintf(w, "  ✗  %-20s  stale (process %d no longer running, was: %s)\n", c.Name, status.PID, status.State)
+				continue
+			}
+
 			switch status.State {
 			case "change_detected":
 				fmt.Fprintf(w, "  ◎  %-20s  change detected at %s\n", c.Name, short(status.HeadAtStart))

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -77,6 +78,28 @@ func ReadStatus(repoDir, concernName string) (*ConcernStatus, error) {
 // nowRFC3339 returns the current time in RFC3339 format.
 func nowRFC3339() string {
 	return time.Now().UTC().Format(time.RFC3339)
+}
+
+// IsActiveState returns true if the state represents an in-progress operation.
+func IsActiveState(state string) bool {
+	switch state {
+	case "change_detected", "agent_running", "committing", "running":
+		return true
+	}
+	return false
+}
+
+// IsProcessAlive checks if a process with the given PID is still running.
+func IsProcessAlive(pid int) bool {
+	if pid <= 0 {
+		return false
+	}
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+	err = proc.Signal(syscall.Signal(0))
+	return err == nil
 }
 
 // SetLastSeen records the last-seen commit hash for a concern.

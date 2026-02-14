@@ -107,6 +107,12 @@ func gatherStatuslineData(cfg *config.Config, repoDir string) StatuslineOutput {
 			cd.LastResult = status.LastResult
 			cd.LastSeen = status.LastSeen
 			cd.Error = status.Error
+
+			// Detect stale active states (process died)
+			if engine.IsActiveState(cd.State) && !engine.IsProcessAlive(status.PID) {
+				cd.State = "failed"
+				cd.Error = fmt.Sprintf("process %d no longer running", status.PID)
+			}
 		} else {
 			cd.State = "unknown"
 		}
