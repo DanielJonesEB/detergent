@@ -2,3 +2,4 @@ bin/
 .detergent/
 notes/
 detergent-test
+.claudit/
