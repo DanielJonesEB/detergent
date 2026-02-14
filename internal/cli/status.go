@@ -3,7 +3,10 @@ package cli
 import (
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
+	"time"
 
 	"github.com/fission-ai/detergent/internal/config"
 	"github.com/fission-ai/detergent/internal/engine"
@@ -11,7 +14,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	statusFollow   bool
+	statusInterval float64
+)
+
 func init() {
+	statusCmd.Flags().BoolVarP(&statusFollow, "follow", "f", false, "Live-update status (like watch)")
+	statusCmd.Flags().Float64VarP(&statusInterval, "interval", "n", 2.0, "Seconds between updates (with --follow)")
 	rootCmd.AddCommand(statusCmd)
 }
 
@@ -43,8 +53,36 @@ var statusCmd = &cobra.Command{
 			return fmt.Errorf("could not find git repository root")
 		}
 
+		if statusFollow {
+			return followStatus(cfg, repoDir)
+		}
 		return showStatus(cfg, repoDir)
 	},
+}
+
+func followStatus(cfg *config.Config, repoDir string) error {
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
+
+	interval := time.Duration(statusInterval * float64(time.Second))
+
+	for {
+		// Move cursor home and clear screen
+		fmt.Print("\033[H\033[2J")
+		fmt.Printf("Every %.1fs: detergent status\n\n", statusInterval)
+
+		if err := showStatus(cfg, repoDir); err != nil {
+			fmt.Fprintf(os.Stderr, "\nerror: %s\n", err)
+		}
+
+		select {
+		case <-sigCh:
+			fmt.Println()
+			return nil
+		case <-time.After(interval):
+		}
+	}
 }
 
 func showStatus(cfg *config.Config, repoDir string) error {
