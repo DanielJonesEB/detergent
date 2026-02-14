@@ -1,0 +1,10 @@
+agent:
+  command: "true"
+
+concerns:
+  - name: security
+    watches: main
+    prompt: "Review for security vulnerabilities"
+  - name: docs
+    watches: security
+    prompt: "Update documentation for changes"
