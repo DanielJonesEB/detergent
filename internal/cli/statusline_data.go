@@ -96,7 +96,7 @@ func gatherStatuslineData(cfg *config.Config, repoDir string) StatuslineOutput {
 
 			// Detect stale active states (process died)
 			if engine.IsActiveState(cd.State) && !engine.IsProcessAlive(status.PID) {
-				cd.State = "failed"
+				cd.State = engine.StateFailed
 				cd.Error = fmt.Sprintf("process %d no longer running", status.PID)
 			}
 		} else {
@@ -116,12 +116,12 @@ func gatherStatuslineData(cfg *config.Config, repoDir string) StatuslineOutput {
 		}
 
 		// Normalize: idle + caught up + no last_result → noop
-		if cd.State == "idle" && cd.LastResult == "" && cd.LastSeen != "" && !cd.BehindHead {
-			cd.LastResult = "noop"
+		if cd.State == engine.StateIdle && cd.LastResult == "" && cd.LastSeen != "" && !cd.BehindHead {
+			cd.LastResult = engine.ResultNoop
 		}
 
 		// Normalize: idle + behind HEAD + previously ran → pending
-		if cd.State == "idle" && cd.BehindHead && cd.LastSeen != "" {
+		if cd.State == engine.StateIdle && cd.BehindHead && cd.LastSeen != "" {
 			cd.State = "pending"
 		}
 

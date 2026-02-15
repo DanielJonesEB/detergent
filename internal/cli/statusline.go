@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/re-cinq/detergent/internal/config"
+	"github.com/re-cinq/detergent/internal/engine"
 	"github.com/spf13/cobra"
 )
 
@@ -107,25 +108,25 @@ const (
 
 func statusSymbol(state, lastResult string) string {
 	switch state {
-	case "change_detected":
+	case engine.StateChangeDetected:
 		return "◎"
-	case "agent_running":
+	case engine.StateAgentRunning:
 		return "⟳"
-	case "committing":
+	case engine.StateCommitting:
 		return "⟳"
 	case "running": // legacy
 		return "⟳"
-	case "failed":
+	case engine.StateFailed:
 		return "✗"
-	case "skipped":
+	case engine.StateSkipped:
 		return "⊘"
 	case "pending":
 		return "◯"
-	case "idle":
+	case engine.StateIdle:
 		switch lastResult {
-		case "modified":
+		case engine.ResultModified:
 			return "*"
-		case "noop":
+		case engine.ResultNoop:
 			return "✓"
 		}
 		return "·"
@@ -138,25 +139,25 @@ func statusSymbol(state, lastResult string) string {
 
 func statusColor(state, lastResult string) string {
 	switch state {
-	case "change_detected":
+	case engine.StateChangeDetected:
 		return ansiYellow
-	case "agent_running":
+	case engine.StateAgentRunning:
 		return ansiYellow
-	case "committing":
+	case engine.StateCommitting:
 		return ansiYellow
 	case "running": // legacy
 		return ansiYellow
-	case "failed":
+	case engine.StateFailed:
 		return ansiRed
-	case "skipped":
+	case engine.StateSkipped:
 		return ansiDim
 	case "pending":
 		return ansiYellow
-	case "idle":
+	case engine.StateIdle:
 		switch lastResult {
-		case "modified":
+		case engine.ResultModified:
 			return ansiCyan
-		case "noop":
+		case engine.ResultNoop:
 			return ansiGreen
 		}
 		return ansiDim
