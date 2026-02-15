@@ -354,16 +354,19 @@ func assembleContext(repo *gitops.Repo, concern config.Concern, lastSeen, head s
 }
 
 func invokeAgent(cfg *config.Config, worktreeDir, context string, output io.Writer) error {
-	// Write context to a temp file
+	// Write context to a file in the worktree (available to the agent)
 	contextFile := filepath.Join(worktreeDir, ".detergent-context")
 	if err := os.WriteFile(contextFile, []byte(context), 0644); err != nil {
 		return err
 	}
 	defer os.Remove(contextFile)
 
+	// Pass context file path as last arg, and pipe context to stdin
+	// so agents like `claude -p` that read from stdin work too
 	args := append(cfg.Agent.Args, contextFile)
 	cmd := exec.Command(cfg.Agent.Command, args...)
 	cmd.Dir = worktreeDir
+	cmd.Stdin = strings.NewReader(context)
 	cmd.Stdout = output
 	cmd.Stderr = output
 	return cmd.Run()

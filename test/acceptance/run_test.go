@@ -86,6 +86,34 @@ concerns:
 		Expect(msg).To(ContainSubstring("Triggered-By:"))
 	})
 
+	It("pipes context to agent stdin", func() {
+		// Use an agent that reads from stdin and writes it to a file
+		stdinConfigPath := filepath.Join(repoDir, "detergent-stdin.yaml")
+		writeFile(stdinConfigPath, `
+agent:
+  command: "sh"
+  args: ["-c", "cat > stdin-received.txt"]
+
+settings:
+  branch_prefix: "detergent/"
+
+concerns:
+  - name: security
+    watches: main
+    prompt: "Review for security issues"
+`)
+		cmd := exec.Command(binaryPath, "run", "--once", stdinConfigPath)
+		output, err := cmd.CombinedOutput()
+		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
+
+		// Verify the agent received context via stdin by checking the file it wrote
+		wtPath := filepath.Join(repoDir, ".detergent", "worktrees", "detergent", "security")
+		stdinContent, err := os.ReadFile(filepath.Join(wtPath, "stdin-received.txt"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(stdinContent)).To(ContainSubstring("# Concern: security"))
+		Expect(string(stdinContent)).To(ContainSubstring("Review for security issues"))
+	})
+
 	It("is idempotent - running twice doesn't create duplicate commits", func() {
 		cmd1 := exec.Command(binaryPath, "run", "--once", configPath)
 		out1, err := cmd1.CombinedOutput()
