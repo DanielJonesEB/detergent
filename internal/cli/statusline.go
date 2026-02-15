@@ -271,7 +271,7 @@ func renderGraph(data StatuslineOutput) string {
 	return sb.String()
 }
 
-// rebaseHint returns a prompt to use /rebase if the concern chain is complete
+// rebaseHint returns a prompt to use /detergent-rebase if the concern chain is complete
 // with modifications ready to land. Returns "" if not applicable.
 func rebaseHint(data StatuslineOutput, concerns map[string]ConcernData, downstream map[string][]string) string {
 	if len(concerns) == 0 {
@@ -294,7 +294,6 @@ func rebaseHint(data StatuslineOutput, concerns map[string]ConcernData, downstre
 	if len(terminals) != 1 {
 		return ""
 	}
-	terminal := terminals[0]
 
 	// All concerns must be idle
 	for _, c := range concerns {
@@ -316,6 +315,5 @@ func rebaseHint(data StatuslineOutput, concerns map[string]ConcernData, downstre
 		return ""
 	}
 
-	branch := data.BranchPrefix + terminal
-	return fmt.Sprintf("\033[1;33m⚠ use /rebase %s to pick up latest changes%s", branch, ansiReset)
+	return fmt.Sprintf("\033[1;33m⚠ use /detergent-rebase to pick up latest changes%s", ansiReset)
 }

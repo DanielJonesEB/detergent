@@ -68,7 +68,7 @@ func initSkills(repoDir string) ([]string, error) {
 			return err
 		}
 
-		// Target path: .claude/<path> (skills/rebase/SKILL.md -> .claude/skills/rebase/SKILL.md)
+		// Target path: .claude/<path> (skills/detergent-rebase/SKILL.md -> .claude/skills/detergent-rebase/SKILL.md)
 		target := filepath.Join(repoDir, ".claude", path)
 
 		if d.IsDir() {

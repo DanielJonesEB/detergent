@@ -135,7 +135,7 @@ If anything goes wrong: `git reset --hard pre-rebase-backup`
   ```
   main ─── security ✓ ── docs ⟳ ── style ·
   ```
-  - When on a terminal concern branch that's behind HEAD, displays a bold yellow warning: `⚠ use /rebase <branch> to pick up latest changes`
+  - When on a terminal concern branch that's behind HEAD, displays a bold yellow warning: `⚠ use /detergent-rebase to pick up latest changes`
 - **Skills** — adds `/detergent-start` to start the daemon as a background task and `/detergent-rebase` for rebasing concern branch changes onto their upstream
 
 ### Statusline Symbols

@@ -1,6 +1,6 @@
 ---
-name: rebase
-description: Rebase main with the output of a completed detergent concern chain. Handles backup, stash, conflict resolution, and recovery.
+name: detergent-rebase
+description: Pull agent changes back into your working branch. Rebases main onto the terminal concern branch, with backup, stash, conflict resolution, and recovery.
 metadata:
   author: detergent
   version: "2.0"

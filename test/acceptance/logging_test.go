@@ -18,6 +18,10 @@ var _ = Describe("agent output logging", func() {
 	var configPath string
 
 	BeforeEach(func() {
+		// Remove stale log files before each test (shared /tmp path)
+		os.Remove(filepath.Join(os.TempDir(), "detergent-security.log"))
+		os.Remove(filepath.Join(os.TempDir(), "detergent-style.log"))
+
 		var err error
 		tmpDir, err = os.MkdirTemp("", "detergent-logging-*")
 		Expect(err).NotTo(HaveOccurred())
@@ -189,7 +193,6 @@ concerns:
 `)
 
 			logPath := filepath.Join(os.TempDir(), "detergent-security.log")
-			os.Remove(logPath)
 
 			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 			err := cmd.Start()
@@ -232,9 +235,7 @@ concerns:
     prompt: "Review"
 `)
 
-			// Remove stale log file from prior tests (shared /tmp path)
 			logPath := filepath.Join(os.TempDir(), "detergent-security.log")
-			os.Remove(logPath)
 
 			cmd := exec.Command(binaryPath, "run", "--path", configPath)
 			cmd.Dir = repoDir
