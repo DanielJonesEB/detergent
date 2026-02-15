@@ -12,14 +12,14 @@ import (
 )
 
 func init() {
-	rootCmd.AddCommand(installCmd)
+	rootCmd.AddCommand(initCmd)
 }
 
-var installCmd = &cobra.Command{
-	Use:   "install [path]",
-	Short: "Install detergent skills and statusline into a repository",
-	Long: `Install detergent Claude Code skills and statusline configuration
-into the target repository (defaults to current directory).
+var initCmd = &cobra.Command{
+	Use:   "init [path]",
+	Short: "Initialize detergent skills and statusline in a repository",
+	Long: `Initialize detergent Claude Code skills and statusline configuration
+in the target repository (defaults to current directory).
 
 This command:
   - Copies skill files into .claude/skills/
@@ -41,7 +41,7 @@ This command:
 			return fmt.Errorf("%s is not a git repository (no .git directory)", absDir)
 		}
 
-		installed, err := installSkills(absDir)
+		installed, err := initSkills(absDir)
 		if err != nil {
 			return fmt.Errorf("installing skills: %w", err)
 		}
@@ -49,7 +49,7 @@ This command:
 			fmt.Printf("  skill  %s\n", path)
 		}
 
-		if err := installStatusline(absDir); err != nil {
+		if err := initStatusline(absDir); err != nil {
 			return fmt.Errorf("configuring statusline: %w", err)
 		}
 		fmt.Println("  config .claude/settings.local.json (statusline)")
@@ -59,8 +59,8 @@ This command:
 	},
 }
 
-// installSkills copies all embedded skill files into .claude/skills/.
-func installSkills(repoDir string) ([]string, error) {
+// initSkills copies all embedded skill files into .claude/skills/.
+func initSkills(repoDir string) ([]string, error) {
 	var installed []string
 
 	err := fs.WalkDir(assets.Skills, "skills", func(path string, d fs.DirEntry, err error) error {
@@ -95,8 +95,8 @@ func installSkills(repoDir string) ([]string, error) {
 	return installed, err
 }
 
-// installStatusline adds or updates the statusline config in .claude/settings.local.json.
-func installStatusline(repoDir string) error {
+// initStatusline adds or updates the statusline config in .claude/settings.local.json.
+func initStatusline(repoDir string) error {
 	detergentBin, err := os.Executable()
 	if err != nil {
 		// Fall back to expecting it in PATH

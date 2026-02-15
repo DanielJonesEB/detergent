@@ -92,8 +92,8 @@ detergent logs -f security
 # Use a different config file
 detergent run --path my-config.yaml
 
-# Install Claude Code integration (statusline + skills)
-detergent install
+# Initialize Claude Code integration (statusline + skills)
+detergent init
 ```
 
 ## How It Works
@@ -109,7 +109,7 @@ detergent install
 
 ## Claude Code Integration
 
-`detergent install` sets up:
+`detergent init` sets up:
 
 - **Statusline** — shows the concern pipeline in Claude Code's status bar:
   ```
