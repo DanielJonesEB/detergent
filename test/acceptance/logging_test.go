@@ -137,6 +137,84 @@ concerns:
 		})
 	})
 
+	Describe("PTY support", func() {
+		It("provides a TTY to the agent stdout", func() {
+			configPath = filepath.Join(repoDir, "detergent.yaml")
+			writeFile(configPath, `
+agent:
+  command: "sh"
+  args: ["-c", "test -t 1 && echo TTY_YES || echo TTY_NO"]
+
+settings:
+  branch_prefix: "detergent/"
+
+concerns:
+  - name: security
+    watches: main
+    prompt: "Review"
+`)
+
+			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+			output, err := cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
+
+			logPath := filepath.Join(os.TempDir(), "detergent-security.log")
+			logContent, err := os.ReadFile(logPath)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(logContent)).To(ContainSubstring("TTY_YES"),
+				"agent should see stdout as a TTY (PTY allocated)")
+		})
+
+		It("streams agent output to log file in real-time", func() {
+			if _, err := exec.LookPath("python3"); err != nil {
+				Skip("python3 not found")
+			}
+
+			configPath = filepath.Join(repoDir, "detergent.yaml")
+			// Python uses full buffering on pipes, line buffering on TTYs.
+			// Without the PTY, STREAMING_MARKER would stay in Python's
+			// buffer and not appear in the log until the process exits
+			// (5 seconds later). With the PTY, it flushes immediately.
+			writeFile(configPath, `
+agent:
+  command: "python3"
+  args: ["-c", "import time; print('STREAMING_MARKER'); time.sleep(5)"]
+
+settings:
+  branch_prefix: "detergent/"
+
+concerns:
+  - name: security
+    watches: main
+    prompt: "Review"
+`)
+
+			logPath := filepath.Join(os.TempDir(), "detergent-security.log")
+			os.Remove(logPath)
+
+			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+			err := cmd.Start()
+			Expect(err).NotTo(HaveOccurred())
+			defer cmd.Process.Kill()
+
+			// Poll for the marker within 3s. The agent sleeps 5s total,
+			// so if it appears before the deadline the output was streamed
+			// in real-time (not buffered until agent exit).
+			Eventually(func() string {
+				data, _ := os.ReadFile(logPath)
+				return string(data)
+			}, 3*time.Second, 200*time.Millisecond).Should(
+				ContainSubstring("STREAMING_MARKER"),
+				"agent output should appear in log before process exits (real-time streaming)")
+
+			// Verify detergent is still running (agent hasn't exited yet)
+			Expect(cmd.Process.Signal(syscall.Signal(0))).To(Succeed(),
+				"detergent should still be running — output was streamed, not buffered until exit")
+
+			cmd.Wait()
+		})
+	})
+
 	Describe("daemon mode", func() {
 		It("shows daemon messages on terminal but not agent output", func() {
 			configPath = filepath.Join(repoDir, "detergent.yaml")
