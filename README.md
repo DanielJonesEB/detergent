@@ -1,27 +1,24 @@
 # Detergent
 
-A daemon that orchestrates AI coding agents through a pipeline of concerns.
+Deterministic agent invocation. Define a chain of agent calls that will get invoked, in sequence, on every commit. Get alerted via the Claude Code statusline when downstream agents make changes, and use the `/detergent-rebase` skill to automatically pull them in.
 
-Instead of cramming security, documentation, and style checks into one prompt, Detergent runs specialized agents in sequence. Each agent sees the work of those before it, preserving intent as changes flow through the pipeline.
+Kinda like CI, but local.
+
+Everything is in Git, so you lose nothing. If you _also_ use [`claudit`](https://github.com/re-cinq/claudit), your agent can automatically attach chat history as Git Notes.
 
 ## Installation
-
-### Quick install (recommended)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/re-cinq/detergent/master/scripts/install.sh | bash
 ```
 
-The install script automatically:
-- Downloads the latest release binary for your platform (macOS, Linux, Windows)
-- Falls back to `go install` if release download fails
-- Falls back to building from source if needed
-- Signs binaries on macOS for Gatekeeper compatibility
-
-### From source
+Then, in your repo:
 
 ```bash
-go install github.com/re-cinq/detergent/cmd/detergent@latest
+detergent init # Set up skills
+detergent run # Start the daemon (there's a skill for this too)
+detergent status # See what's going on
+detergent status -f -n 1 # Follow the status, refreshing every 1 second
 ```
 
 ## Quick Start
@@ -31,10 +28,10 @@ Create a config file `detergent.yaml`:
 ```yaml
 agent:
   command: claude
-  args: ["-p"]
+  args: ["--dangerously-skip-permissions", "-p"]
 
 settings:
-  poll_interval: 30s
+  poll_interval: 5s
   watches: main
 
 concerns:
@@ -62,13 +59,23 @@ permissions:
     - "Bash(*)"
 ```
 
+## Why?
+
+Models will absolutely forget things, especially if context is overloaded (there's too much) or polluted (too many different topics). However, if you prompt them with a clear context, they'll spot what they overlooked straight away.
+
+### Why not...
+
+* **...do it yourself?** As a human, trying to remember to run the same set of quality-check prompts before every commit is a hassle.
+* **...do it in CI?** Leaving these tasks until CI delays feedback, your agent might not be configured to read from CI, and sometimes you don't want to push.
+* **...use a Git hook?** Not being able to commit in a hurry would be inconvenient. Plus, with `detergent` you can tell your main agent to commit with `skip detergent` if you want.
+
 ## Usage
 
 ```bash
 # Validate your config (defaults to detergent.yaml)
 detergent validate
 
-# See the concern graph
+# See the concern chain
 detergent viz
 
 # Run once and exit
@@ -116,7 +123,7 @@ detergent init
   main ─── security ✓ ── docs ⟳ ── style ·
   ```
   - When on a terminal concern branch that's behind HEAD, displays a bold yellow warning: `⚠ use /rebase <branch> to pick up latest changes`
-- **Skills** — adds `/detergent-start` to start the daemon as a background task and `/rebase` for rebasing concern branch changes onto their upstream
+- **Skills** — adds `/detergent-start` to start the daemon as a background task and `/detergent-rebase` for rebasing concern branch changes onto their upstream
 
 ### Statusline Symbols
 
