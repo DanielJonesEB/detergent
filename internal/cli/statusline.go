@@ -326,5 +326,5 @@ func rebaseHint(data StatuslineOutput, concerns map[string]ConcernData, downstre
 	}
 
 	branch := data.BranchPrefix + terminal
-	return fmt.Sprintf("%suse /rebase %s to pick up latest changes%s", ansiDim, branch, ansiReset)
+	return fmt.Sprintf("\033[1;33m⚠ use /rebase %s to pick up latest changes%s", branch, ansiReset)
 }
