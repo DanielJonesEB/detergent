@@ -97,7 +97,7 @@ func RunOnceWithLogs(cfg *config.Config, repoDir string, logMgr *LogManager) err
 			c := level[0]
 			if failed.has(c.Watches) {
 				fmt.Fprintf(os.Stderr, "skipping %s: upstream concern failed\n", c.Name)
-				WriteStatus(repoDir, c.Name, &ConcernStatus{
+				_ = WriteStatus(repoDir, c.Name, &ConcernStatus{
 					State: "skipped",
 					Error: "upstream concern failed",
 					PID:   os.Getpid(),
@@ -114,7 +114,7 @@ func RunOnceWithLogs(cfg *config.Config, repoDir string, logMgr *LogManager) err
 			for _, c := range level {
 				if failed.has(c.Watches) {
 					fmt.Fprintf(os.Stderr, "skipping %s: upstream concern failed\n", c.Name)
-					WriteStatus(repoDir, c.Name, &ConcernStatus{
+					_ = WriteStatus(repoDir, c.Name, &ConcernStatus{
 						State: "skipped",
 						Error: "upstream concern failed",
 						PID:   os.Getpid(),
@@ -175,7 +175,7 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 		if prevStatus != nil {
 			lastResult = prevStatus.LastResult
 		}
-		WriteStatus(repoDir, concern.Name, &ConcernStatus{
+		_ = WriteStatus(repoDir, concern.Name, &ConcernStatus{
 			State:      "idle",
 			LastSeen:   lastSeen,
 			LastResult: lastResult,
@@ -195,7 +195,7 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 		if prevStatus != nil {
 			lastResult = prevStatus.LastResult
 		}
-		WriteStatus(repoDir, concern.Name, &ConcernStatus{
+		_ = WriteStatus(repoDir, concern.Name, &ConcernStatus{
 			State:      "idle",
 			LastSeen:   head,
 			LastResult: lastResult,
@@ -206,7 +206,7 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 
 	// Write change-detected status
 	startedAt := nowRFC3339()
-	WriteStatus(repoDir, concern.Name, &ConcernStatus{
+	_ = WriteStatus(repoDir, concern.Name, &ConcernStatus{
 		State:       "change_detected",
 		StartedAt:   startedAt,
 		HeadAtStart: head,
@@ -266,7 +266,7 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 	}
 
 	// Write agent-started status
-	WriteStatus(repoDir, concern.Name, &ConcernStatus{
+	_ = WriteStatus(repoDir, concern.Name, &ConcernStatus{
 		State:       "agent_running",
 		StartedAt:   startedAt,
 		HeadAtStart: head,
@@ -281,7 +281,7 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 	}
 
 	// Write agent-succeeded status
-	WriteStatus(repoDir, concern.Name, &ConcernStatus{
+	_ = WriteStatus(repoDir, concern.Name, &ConcernStatus{
 		State:       "committing",
 		StartedAt:   startedAt,
 		HeadAtStart: head,
@@ -301,7 +301,7 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 		commits, _ := repo.CommitsBetween(lastSeen, head)
 		noteMsg := fmt.Sprintf("[%s] Reviewed, no changes needed", strings.ToUpper(concern.Name))
 		for _, hash := range commits {
-			repo.AddNote(hash, noteMsg)
+			_ = repo.AddNote(hash, noteMsg)
 		}
 	}
 
@@ -316,7 +316,7 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 	if changed {
 		result = "modified"
 	}
-	WriteStatus(repoDir, concern.Name, &ConcernStatus{
+	_ = WriteStatus(repoDir, concern.Name, &ConcernStatus{
 		State:       "idle",
 		LastResult:  result,
 		StartedAt:   startedAt,
@@ -331,7 +331,7 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 
 // processConcernFailed writes a failed status and returns the wrapped error.
 func processConcernFailed(repoDir, concernName, startedAt, head, lastSeen string, pid int, origErr, wrappedErr error) error {
-	WriteStatus(repoDir, concernName, &ConcernStatus{
+	_ = WriteStatus(repoDir, concernName, &ConcernStatus{
 		State:       "failed",
 		StartedAt:   startedAt,
 		CompletedAt: nowRFC3339(),
@@ -467,7 +467,7 @@ func rebaseWorktree(worktreeDir, targetBranch string) error {
 	// Abort any stale in-progress rebase from a previous interrupted run.
 	abortCmd := exec.Command("git", "rebase", "--abort")
 	abortCmd.Dir = worktreeDir
-	abortCmd.CombinedOutput() // ignore error — fails if no rebase in progress
+	_, _ = abortCmd.CombinedOutput() // ignore error — fails if no rebase in progress
 
 	cmd := exec.Command("git", "rebase", targetBranch)
 	cmd.Dir = worktreeDir
@@ -479,7 +479,7 @@ func rebaseWorktree(worktreeDir, targetBranch string) error {
 		// can regenerate from a clean base.
 		abort := exec.Command("git", "rebase", "--abort")
 		abort.Dir = worktreeDir
-		abort.CombinedOutput()
+		_, _ = abort.CombinedOutput()
 
 		reset := exec.Command("git", "reset", "--hard", targetBranch)
 		reset.Dir = worktreeDir
