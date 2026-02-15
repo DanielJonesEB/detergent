@@ -111,6 +111,19 @@ detergent init
 4. Agent changes are committed with `[CONCERN]` tags and `Triggered-By:` trailers
 5. If no changes needed, a git note records the review
 6. Downstream concerns see upstream commits and can build on them
+7. The statusline shows `*` next to concerns that produced changes — use `/detergent-rebase` to pull them back into your working branch
+
+### Getting changes back
+
+Agent work accumulates on concern branches (`detergent/security`, `detergent/style`, etc.). The `/detergent-rebase` skill merges the terminal concern's branch back into main:
+
+1. Finds the terminal concern (the end of the chain — nothing watches it)
+2. Verifies the chain is complete (no concerns still running or failed)
+3. Creates a backup branch (`pre-rebase-backup`) and stashes uncommitted work
+4. Rebases main onto the terminal branch, resolving conflicts if needed
+5. Restores stash and reports what happened
+
+If anything goes wrong: `git reset --hard pre-rebase-backup`
 
 **Note:** When running as a daemon, detergent automatically reloads `detergent.yaml` at the start of each poll cycle. Config changes take effect immediately without requiring a restart.
 
