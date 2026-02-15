@@ -208,7 +208,8 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 	wtPath := gitops.WorktreePath(repoDir, cfg.Settings.BranchPrefix, concern.Name)
 	if _, err := os.Stat(wtPath); os.IsNotExist(err) {
 		if err := os.MkdirAll(filepath.Dir(wtPath), 0755); err != nil {
-			return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err, err)
+			return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
+				fmt.Errorf("creating worktree directory: %w", err))
 		}
 		if err := repo.CreateWorktree(wtPath, outputBranch); err != nil {
 			return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
@@ -286,7 +287,8 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 
 	// Update last-seen
 	if err := SetLastSeen(repoDir, concern.Name, head); err != nil {
-		return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err, err)
+		return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
+			fmt.Errorf("updating last-seen marker: %w", err))
 	}
 
 	// Write idle status with result

@@ -84,7 +84,10 @@ func installSkills(repoDir string) ([]string, error) {
 			return fmt.Errorf("writing %s: %w", target, err)
 		}
 
-		rel, _ := filepath.Rel(repoDir, target)
+		rel, err := filepath.Rel(repoDir, target)
+		if err != nil {
+			return fmt.Errorf("computing relative path for %s: %w", target, err)
+		}
 		installed = append(installed, rel)
 		return nil
 	})
