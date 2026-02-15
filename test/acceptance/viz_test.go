@@ -32,8 +32,8 @@ var _ = Describe("detergent viz", func() {
 		})
 	})
 
-	Context("with parallel concerns and a chain", func() {
-		It("shows both branches from main", func() {
+	Context("with a longer chain", func() {
+		It("shows all concerns", func() {
 			cmd := exec.Command(binaryPath, "viz", "--path", testdataPath("complex_graph.yaml"))
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred())

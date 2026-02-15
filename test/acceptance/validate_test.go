@@ -57,7 +57,6 @@ var _ = Describe("detergent validate", func() {
 			out := string(output)
 			Expect(out).To(ContainSubstring("agent.command"))
 			Expect(out).To(ContainSubstring("name is required"))
-			Expect(out).To(ContainSubstring("watches is required"))
 			Expect(out).To(ContainSubstring("prompt is required"))
 		})
 	})

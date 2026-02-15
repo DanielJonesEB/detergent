@@ -30,6 +30,7 @@ type AgentConfig struct {
 type Settings struct {
 	PollInterval Duration `yaml:"poll_interval"`
 	BranchPrefix string   `yaml:"branch_prefix"`
+	Watches      string   `yaml:"watches"`
 }
 
 // Duration wraps time.Duration for YAML unmarshaling from strings like "10s".
@@ -79,6 +80,22 @@ func parse(data []byte) (*Config, error) {
 	if cfg.Settings.PollInterval == 0 {
 		cfg.Settings.PollInterval = Duration(30 * time.Second)
 	}
+	if cfg.Settings.Watches == "" {
+		cfg.Settings.Watches = "main"
+	}
+
+	// Auto-populate Watches for concerns defined as an ordered list.
+	// First concern watches settings.watches; each subsequent concern
+	// watches the previous one. Explicit watches values take precedence.
+	for i := range cfg.Concerns {
+		if cfg.Concerns[i].Watches == "" {
+			if i == 0 {
+				cfg.Concerns[i].Watches = cfg.Settings.Watches
+			} else {
+				cfg.Concerns[i].Watches = cfg.Concerns[i-1].Name
+			}
+		}
+	}
 
 	return &cfg, nil
 }
@@ -102,10 +119,6 @@ func Validate(cfg *Config) []error {
 			errs = append(errs, fmt.Errorf("concerns[%d]: duplicate name %q", i, c.Name))
 		} else {
 			names[c.Name] = true
-		}
-
-		if c.Watches == "" {
-			errs = append(errs, fmt.Errorf("concerns[%d] (%s): watches is required", i, c.Name))
 		}
 
 		if c.Prompt == "" {

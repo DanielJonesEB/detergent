@@ -35,25 +35,20 @@ agent:
 
 settings:
   poll_interval: 30s
-  branch_prefix: detergent/
+  watches: main
 
 concerns:
   - name: security
-    watches: main
     prompt: "Review for security vulnerabilities. Fix any issues found."
 
   - name: docs
-    watches: security
     prompt: "Ensure public functions have clear documentation."
 
   - name: style
-    watches: main
     prompt: "Fix any code style issues."
 ```
 
-This creates a graph where:
-- `security` and `style` watch `main` (run in parallel)
-- `docs` watches `security` (runs after security completes)
+Concerns are processed as an ordered chain: each concern watches the one before it, and the first concern watches the branch specified in `settings.watches` (defaults to `main`).
 
 ### Permissions
 
