@@ -9,6 +9,9 @@ set -euo pipefail
 REPO="re-cinq/detergent"
 BINARY="detergent"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
+CLEANUP_DIR=""
+
+cleanup() { [ -n "$CLEANUP_DIR" ] && rm -rf "$CLEANUP_DIR"; }
 
 # Colors
 RED='\033[0;31m'
@@ -75,9 +78,9 @@ install_from_release() {
 
     info "Downloading ${BINARY} ${version} for ${platform}..."
 
-    local tmpdir
-    tmpdir=$(mktemp -d)
-    trap 'rm -rf "$tmpdir"' EXIT
+    CLEANUP_DIR=$(mktemp -d)
+    trap cleanup EXIT
+    local tmpdir="$CLEANUP_DIR"
 
     if ! curl -fsSL "$url" -o "${tmpdir}/${archive_name}"; then
         warn "Download failed for ${url}"
@@ -145,9 +148,9 @@ install_from_source() {
 
     info "Building from source..."
 
-    local tmpdir
-    tmpdir=$(mktemp -d)
-    trap 'rm -rf "$tmpdir"' EXIT
+    CLEANUP_DIR=$(mktemp -d)
+    trap cleanup EXIT
+    local tmpdir="$CLEANUP_DIR"
 
     git clone "https://github.com/${REPO}.git" "${tmpdir}/${BINARY}"
     cd "${tmpdir}/${BINARY}"
