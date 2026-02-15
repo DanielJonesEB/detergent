@@ -96,10 +96,10 @@ func findDetergentConfig(dir string) string {
 
 // ANSI escape codes
 const (
-	ansiGreen  = "\033[32m"
-	ansiCyan   = "\033[36m"
-	ansiYellow = "\033[33m"
-	ansiRed    = "\033[31m"
+	ansiGreen       = "\033[32m"
+	ansiCyan        = "\033[36m"
+	ansiYellow      = "\033[33m"
+	ansiRed         = "\033[31m"
 	ansiDim         = "\033[2m"
 	ansiBoldMagenta = "\033[1;35m"
 	ansiReset       = "\033[0m"
