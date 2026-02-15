@@ -1,4 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
+#
+# detergent installation script
+# Usage: curl -fsSL https://raw.githubusercontent.com/re-cinq/detergent/master/scripts/install.sh | bash
+#
+
 set -euo pipefail
 
 REPO="re-cinq/detergent"
