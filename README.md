@@ -47,6 +47,8 @@ concerns:
 
 Concerns are processed as an ordered chain: each concern watches the one before it, and the first concern watches the branch specified in `settings.watches` (defaults to `main`).
 
+**Note:** Detergent automatically prepends "You are running non-interactively. Do not ask questions or wait for confirmation." to every concern prompt, so agents proceed autonomously without pausing for user input.
+
 ### Permissions
 
 If your agent is Claude Code, you can pre-approve tool permissions instead of using `--dangerously-skip-permissions`. Add an optional `permissions` block — detergent writes it as `.claude/settings.json` in each worktree before invoking the agent:
