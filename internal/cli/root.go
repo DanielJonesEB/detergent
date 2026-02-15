@@ -14,11 +14,11 @@ var configPath string
 var rootCmd = &cobra.Command{
 	Use:   "detergent",
 	Short: "Orchestrate coding agents in a concern-based pipeline",
-	Long: `Detergent is a daemon that orchestrates coding agents through a directed
-graph of concerns. Each concern focuses on a single quality aspect (security,
+	Long: `Detergent is a daemon that orchestrates coding agents through a chain
+of concerns. Each concern focuses on a single quality aspect (security,
 style, documentation, etc.) and processes code changes in sequence.
 
-Changes flow through the concern graph with Git providing the audit trail
+Changes flow through the concern chain with Git providing the audit trail
 and intent preservation between agents.`,
 }
 

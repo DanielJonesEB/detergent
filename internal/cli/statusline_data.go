@@ -17,6 +17,7 @@ func init() {
 var statuslineDataCmd = &cobra.Command{
 	Use:   "statusline-data",
 	Short: "Output JSON status data for all concerns (for statusline rendering)",
+	Hidden: true,
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := loadAndValidateConfig(configPath)

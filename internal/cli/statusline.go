@@ -13,12 +13,13 @@ import (
 )
 
 func init() {
+	statuslineCmd.Hidden = true
 	rootCmd.AddCommand(statuslineCmd)
 }
 
 var statuslineCmd = &cobra.Command{
 	Use:   "statusline",
-	Short: "Render concern graph for Claude Code statusline (reads JSON from stdin)",
+	Short: "Render concern chain for Claude Code statusline (reads JSON from stdin)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		input, err := io.ReadAll(os.Stdin)
 		if err != nil {

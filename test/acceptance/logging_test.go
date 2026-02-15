@@ -233,6 +233,10 @@ concerns:
     prompt: "Review"
 `)
 
+			// Remove stale log file from prior tests (shared /tmp path)
+			logPath := filepath.Join(os.TempDir(), "detergent-security.log")
+			os.Remove(logPath)
+
 			cmd := exec.Command(binaryPath, "run", "--path", configPath)
 			cmd.Dir = repoDir
 			var outputBuf strings.Builder
@@ -259,7 +263,6 @@ concerns:
 			Expect(terminalOutput).NotTo(ContainSubstring("AGENT_SECRET_OUTPUT"))
 
 			// Agent output SHOULD appear in log file
-			logPath := filepath.Join(os.TempDir(), "detergent-security.log")
 			logContent, err := os.ReadFile(logPath)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(logContent)).To(ContainSubstring("AGENT_SECRET_OUTPUT"))

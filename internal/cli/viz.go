@@ -13,7 +13,7 @@ func init() {
 
 var vizCmd = &cobra.Command{
 	Use:   "viz",
-	Short: "Visualize the concern graph",
+	Short: "Visualize the concern chain",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := loadAndValidateConfig(configPath)
