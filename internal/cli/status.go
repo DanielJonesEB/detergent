@@ -28,16 +28,16 @@ func init() {
 }
 
 var statusCmd = &cobra.Command{
-	Use:   "status <config-file>",
+	Use:   "status",
 	Short: "Show the status of each concern",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := loadAndValidateConfig(args[0])
+		cfg, err := loadAndValidateConfig(configPath)
 		if err != nil {
 			return err
 		}
 
-		repoDir, err := resolveRepo(args[0])
+		repoDir, err := resolveRepo(configPath)
 		if err != nil {
 			return err
 		}
@@ -55,7 +55,7 @@ func followStatus(cfg *config.Config, repoDir string) error {
 	defer signal.Stop(sigCh)
 
 	interval := time.Duration(statusInterval * float64(time.Second))
-	var lastOutput string
+	first := true
 
 	for {
 		var buf bytes.Buffer
@@ -64,12 +64,19 @@ func followStatus(cfg *config.Config, repoDir string) error {
 		}
 		output := buf.String()
 
-		if output != lastOutput {
+		// Move cursor home and clear screen on first render;
+		// subsequent renders move home and overwrite in place
+		// to avoid flicker while still refreshing log tails.
+		if first {
 			fmt.Print("\033[H\033[2J")
-			fmt.Printf("Every %.1fs: detergent status\n\n", statusInterval)
-			fmt.Print(output)
-			lastOutput = output
+			first = false
+		} else {
+			fmt.Print("\033[H")
 		}
+		fmt.Printf("Every %.1fs: detergent status\n\n", statusInterval)
+		fmt.Print(output)
+		// Clear from cursor to end of screen to remove stale lines
+		fmt.Print("\033[J")
 
 		select {
 		case <-sigCh:
