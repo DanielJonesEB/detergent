@@ -44,29 +44,32 @@ This creates a graph where:
 ## Usage
 
 ```bash
-# Validate your config
-detergent validate detergent.yaml
+# Validate your config (defaults to detergent.yaml)
+detergent validate
 
 # See the concern graph
-detergent viz detergent.yaml
+detergent viz
 
 # Run once and exit
-detergent run --once detergent.yaml
+detergent run --once
 
 # Run as daemon (polls for changes)
-detergent run detergent.yaml
+detergent run
 
 # Check status of each concern
-detergent status detergent.yaml
+detergent status
 
 # Live-updating status (like watch, tails active agent logs)
-detergent status -f detergent.yaml
+detergent status -f
 
 # View agent logs for a concern
-detergent logs detergent.yaml security
+detergent logs security
 
 # Follow agent logs in real-time
-detergent logs -f detergent.yaml security
+detergent logs -f security
+
+# Use a different config file
+detergent run --path my-config.yaml
 
 # Install Claude Code integration (statusline + skills)
 detergent install

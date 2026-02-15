@@ -9,6 +9,8 @@ import (
 // Version is set at build time via ldflags
 var Version = "dev"
 
+var configPath string
+
 var rootCmd = &cobra.Command{
 	Use:   "detergent",
 	Short: "Orchestrate coding agents in a concern-based pipeline",
@@ -21,6 +23,7 @@ and intent preservation between agents.`,
 }
 
 func init() {
+	rootCmd.PersistentFlags().StringVarP(&configPath, "path", "p", "detergent.yaml", "Path to detergent config file")
 	rootCmd.AddCommand(versionCmd)
 }
 

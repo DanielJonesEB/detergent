@@ -50,7 +50,7 @@ concerns:
 	})
 
 	It("processes both concerns in order after a single run --once", func() {
-		cmd := exec.Command(binaryPath, "run", "--once", configPath)
+		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -61,7 +61,7 @@ concerns:
 	})
 
 	It("creates commits on the downstream branch with concern tags", func() {
-		cmd := exec.Command(binaryPath, "run", "--once", configPath)
+		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -75,7 +75,7 @@ concerns:
 	})
 
 	It("includes upstream commit info in the downstream context", func() {
-		cmd := exec.Command(binaryPath, "run", "--once", configPath)
+		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 

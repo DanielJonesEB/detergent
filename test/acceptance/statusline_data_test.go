@@ -77,7 +77,7 @@ concerns:
 		})
 
 		It("outputs valid JSON with all concerns", func() {
-			cmd := exec.Command(binaryPath, "statusline-data", configPath)
+			cmd := exec.Command(binaryPath, "statusline-data", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "statusline-data failed: %s", string(output))
 
@@ -87,7 +87,7 @@ concerns:
 		})
 
 		It("identifies root concerns correctly", func() {
-			cmd := exec.Command(binaryPath, "statusline-data", configPath)
+			cmd := exec.Command(binaryPath, "statusline-data", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred())
 
@@ -97,7 +97,7 @@ concerns:
 		})
 
 		It("includes graph edges", func() {
-			cmd := exec.Command(binaryPath, "statusline-data", configPath)
+			cmd := exec.Command(binaryPath, "statusline-data", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred())
 
@@ -109,7 +109,7 @@ concerns:
 		})
 
 		It("shows unknown state for never-processed concerns", func() {
-			cmd := exec.Command(binaryPath, "statusline-data", configPath)
+			cmd := exec.Command(binaryPath, "statusline-data", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred())
 
@@ -134,13 +134,13 @@ concerns:
     watches: main
     prompt: "Security review"
 `)
-			cmd := exec.Command(binaryPath, "run", "--once", configPath)
+			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 			out, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "run failed: %s", string(out))
 		})
 
 		It("shows idle state with modified result", func() {
-			cmd := exec.Command(binaryPath, "statusline-data", configPath)
+			cmd := exec.Command(binaryPath, "statusline-data", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred())
 
@@ -158,7 +158,7 @@ concerns:
 			runGit(repoDir, "add", "new.txt")
 			runGit(repoDir, "commit", "-m", "new commit")
 
-			cmd := exec.Command(binaryPath, "statusline-data", configPath)
+			cmd := exec.Command(binaryPath, "statusline-data", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred())
 
@@ -181,13 +181,13 @@ concerns:
     prompt: "Security review"
 `)
 			// Run with "true" agent — sets idle state but no last_result
-			cmd := exec.Command(binaryPath, "run", "--once", configPath)
+			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 			out, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "run failed: %s", string(out))
 		})
 
 		It("normalizes to noop when caught up", func() {
-			cmd := exec.Command(binaryPath, "statusline-data", configPath)
+			cmd := exec.Command(binaryPath, "statusline-data", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred())
 
@@ -210,7 +210,7 @@ concerns:
     watches: main
     prompt: "Security review"
 `)
-			cmd := exec.Command(binaryPath, "run", "--once", configPath)
+			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 			out, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "run failed: %s", string(out))
 
@@ -221,7 +221,7 @@ concerns:
 		})
 
 		It("normalizes state to pending", func() {
-			cmd := exec.Command(binaryPath, "statusline-data", configPath)
+			cmd := exec.Command(binaryPath, "statusline-data", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred())
 
@@ -251,7 +251,7 @@ concerns:
 		})
 
 		It("marks stale active state as failed", func() {
-			cmd := exec.Command(binaryPath, "statusline-data", configPath)
+			cmd := exec.Command(binaryPath, "statusline-data", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred())
 

@@ -54,7 +54,7 @@ concerns:
 		})
 
 		It("processes both concerns", func() {
-			cmd := exec.Command(binaryPath, "run", "--once", configPath)
+			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -65,7 +65,7 @@ concerns:
 
 		It("runs independent concerns concurrently (faster than serial)", func() {
 			start := time.Now()
-			cmd := exec.Command(binaryPath, "run", "--once", configPath)
+			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			elapsed := time.Since(start)
 			Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
@@ -96,7 +96,7 @@ concerns:
 		})
 
 		It("processes dependent concerns sequentially", func() {
-			cmd := exec.Command(binaryPath, "run", "--once", configPath)
+			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 

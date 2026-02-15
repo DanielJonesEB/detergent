@@ -15,16 +15,16 @@ func init() {
 }
 
 var statuslineDataCmd = &cobra.Command{
-	Use:   "statusline-data <config-file>",
+	Use:   "statusline-data",
 	Short: "Output JSON status data for all concerns (for statusline rendering)",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := loadAndValidateConfig(args[0])
+		cfg, err := loadAndValidateConfig(configPath)
 		if err != nil {
 			return err
 		}
 
-		repoDir, err := resolveRepo(args[0])
+		repoDir, err := resolveRepo(configPath)
 		if err != nil {
 			return err
 		}

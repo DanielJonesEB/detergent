@@ -21,16 +21,16 @@ func init() {
 }
 
 var logsCmd = &cobra.Command{
-	Use:   "logs <config-file> <concern>",
+	Use:   "logs <concern>",
 	Short: "Show agent logs for a concern",
-	Args:  cobra.ExactArgs(2),
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := loadAndValidateConfig(args[0])
+		cfg, err := loadAndValidateConfig(configPath)
 		if err != nil {
 			return err
 		}
 
-		concernName := args[1]
+		concernName := args[0]
 
 		// Validate concern name exists in config
 		found := false

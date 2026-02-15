@@ -31,7 +31,11 @@ Start the detergent daemon as a Claude Code background task.
 3. **Start the daemon**
    Run using the Bash tool with `run_in_background: true`:
    ```bash
-   detergent run <config-file>
+   detergent run
+   ```
+   If the config file is not at the default `detergent.yaml`, use `--path`:
+   ```bash
+   detergent run --path /path/to/config.yaml
    ```
    This starts detergent in continuous polling mode. It will process commits through the concern chain as they arrive.
 

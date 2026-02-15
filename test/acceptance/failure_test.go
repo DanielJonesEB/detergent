@@ -73,20 +73,20 @@ concerns:
 		})
 
 		It("does not exit with an error (failures are logged, not propagated)", func() {
-			cmd := exec.Command(binaryPath, "run", "--once", configPath)
+			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 		})
 
 		It("logs the failing concern's error", func() {
-			cmd := exec.Command(binaryPath, "run", "--once", configPath)
+			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 			output, _ := cmd.CombinedOutput()
 			Expect(string(output)).To(ContainSubstring("broken"))
 			Expect(string(output)).To(ContainSubstring("failed"))
 		})
 
 		It("still processes the working concern", func() {
-			cmd := exec.Command(binaryPath, "run", "--once", configPath)
+			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -96,11 +96,11 @@ concerns:
 		})
 
 		It("does not advance last-seen for the failed concern", func() {
-			cmd := exec.Command(binaryPath, "run", "--once", configPath)
+			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 			cmd.CombinedOutput()
 
 			// Run status to check
-			statusCmd := exec.Command(binaryPath, "status", configPath)
+			statusCmd := exec.Command(binaryPath, "status", "--path", configPath)
 			output, err := statusCmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred())
 			out := string(output)

@@ -55,7 +55,7 @@ concerns:
     prompt: "Review for security issues"
 `)
 
-			cmd := exec.Command(binaryPath, "run", "--once", configPath)
+			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -89,7 +89,7 @@ concerns:
 `)
 
 			// Set env var so agent can report which concern it's running for
-			cmd := exec.Command(binaryPath, "run", "--once", configPath)
+			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 			cmd.Env = append(os.Environ(), "DETERGENT_CONCERN=test")
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
@@ -124,7 +124,7 @@ concerns:
 			// Get the commit hash we'll be processing
 			commitHash := strings.TrimSpace(runGitOutput(repoDir, "rev-parse", "HEAD"))
 
-			cmd := exec.Command(binaryPath, "run", "--once", configPath)
+			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -155,7 +155,7 @@ concerns:
     prompt: "Review"
 `)
 
-			cmd := exec.Command(binaryPath, "run", configPath)
+			cmd := exec.Command(binaryPath, "run", "--path", configPath)
 			cmd.Dir = repoDir
 			var outputBuf strings.Builder
 			cmd.Stdout = &outputBuf

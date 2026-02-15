@@ -10,20 +10,20 @@ import (
 var _ = Describe("detergent viz", func() {
 	Context("with a simple chain (main -> security -> docs)", func() {
 		It("exits with code 0", func() {
-			cmd := exec.Command(binaryPath, "viz", testdataPath("valid.yaml"))
+			cmd := exec.Command(binaryPath, "viz", "--path", testdataPath("valid.yaml"))
 			err := cmd.Run()
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("shows the source branch", func() {
-			cmd := exec.Command(binaryPath, "viz", testdataPath("valid.yaml"))
+			cmd := exec.Command(binaryPath, "viz", "--path", testdataPath("valid.yaml"))
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(output)).To(ContainSubstring("[main]"))
 		})
 
 		It("shows concern names in order", func() {
-			cmd := exec.Command(binaryPath, "viz", testdataPath("valid.yaml"))
+			cmd := exec.Command(binaryPath, "viz", "--path", testdataPath("valid.yaml"))
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred())
 			out := string(output)
@@ -34,7 +34,7 @@ var _ = Describe("detergent viz", func() {
 
 	Context("with parallel concerns and a chain", func() {
 		It("shows both branches from main", func() {
-			cmd := exec.Command(binaryPath, "viz", testdataPath("complex_graph.yaml"))
+			cmd := exec.Command(binaryPath, "viz", "--path", testdataPath("complex_graph.yaml"))
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred())
 			out := string(output)

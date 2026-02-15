@@ -53,7 +53,7 @@ concerns:
 
 	It("processes commits and exits cleanly on SIGINT", func() {
 		// Start daemon in background
-		cmd := exec.Command(binaryPath, "run", configPath)
+		cmd := exec.Command(binaryPath, "run", "--path", configPath)
 		cmd.Dir = repoDir
 		var outputBuf strings.Builder
 		cmd.Stdout = &outputBuf

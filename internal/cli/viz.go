@@ -12,11 +12,11 @@ func init() {
 }
 
 var vizCmd = &cobra.Command{
-	Use:   "viz <config-file>",
+	Use:   "viz",
 	Short: "Visualize the concern graph",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := loadAndValidateConfig(args[0])
+		cfg, err := loadAndValidateConfig(configPath)
 		if err != nil {
 			return err
 		}

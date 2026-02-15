@@ -17,13 +17,13 @@ func testdataPath(name string) string {
 var _ = Describe("detergent validate", func() {
 	Context("with a valid config", func() {
 		It("exits with code 0", func() {
-			cmd := exec.Command(binaryPath, "validate", testdataPath("valid.yaml"))
+			cmd := exec.Command(binaryPath, "validate", "--path", testdataPath("valid.yaml"))
 			err := cmd.Run()
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("prints a success message", func() {
-			cmd := exec.Command(binaryPath, "validate", testdataPath("valid.yaml"))
+			cmd := exec.Command(binaryPath, "validate", "--path", testdataPath("valid.yaml"))
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(output)).To(ContainSubstring("valid"))
@@ -32,13 +32,13 @@ var _ = Describe("detergent validate", func() {
 
 	Context("with invalid YAML syntax", func() {
 		It("exits with a non-zero code", func() {
-			cmd := exec.Command(binaryPath, "validate", testdataPath("invalid_yaml.yaml"))
+			cmd := exec.Command(binaryPath, "validate", "--path", testdataPath("invalid_yaml.yaml"))
 			err := cmd.Run()
 			Expect(err).To(HaveOccurred())
 		})
 
 		It("reports a YAML parse error", func() {
-			cmd := exec.Command(binaryPath, "validate", testdataPath("invalid_yaml.yaml"))
+			cmd := exec.Command(binaryPath, "validate", "--path", testdataPath("invalid_yaml.yaml"))
 			output, _ := cmd.CombinedOutput()
 			Expect(string(output)).To(ContainSubstring("YAML"))
 		})
@@ -46,13 +46,13 @@ var _ = Describe("detergent validate", func() {
 
 	Context("with missing required fields", func() {
 		It("exits with a non-zero code", func() {
-			cmd := exec.Command(binaryPath, "validate", testdataPath("missing_fields.yaml"))
+			cmd := exec.Command(binaryPath, "validate", "--path", testdataPath("missing_fields.yaml"))
 			err := cmd.Run()
 			Expect(err).To(HaveOccurred())
 		})
 
 		It("reports each missing field", func() {
-			cmd := exec.Command(binaryPath, "validate", testdataPath("missing_fields.yaml"))
+			cmd := exec.Command(binaryPath, "validate", "--path", testdataPath("missing_fields.yaml"))
 			output, _ := cmd.CombinedOutput()
 			out := string(output)
 			Expect(out).To(ContainSubstring("agent.command"))
@@ -64,13 +64,13 @@ var _ = Describe("detergent validate", func() {
 
 	Context("with a cycle in the concern graph", func() {
 		It("exits with a non-zero code", func() {
-			cmd := exec.Command(binaryPath, "validate", testdataPath("cycle.yaml"))
+			cmd := exec.Command(binaryPath, "validate", "--path", testdataPath("cycle.yaml"))
 			err := cmd.Run()
 			Expect(err).To(HaveOccurred())
 		})
 
 		It("reports the cycle", func() {
-			cmd := exec.Command(binaryPath, "validate", testdataPath("cycle.yaml"))
+			cmd := exec.Command(binaryPath, "validate", "--path", testdataPath("cycle.yaml"))
 			output, _ := cmd.CombinedOutput()
 			Expect(string(output)).To(ContainSubstring("cycle detected"))
 		})
@@ -78,7 +78,7 @@ var _ = Describe("detergent validate", func() {
 
 	Context("with a nonexistent file", func() {
 		It("exits with a non-zero code", func() {
-			cmd := exec.Command(binaryPath, "validate", "/tmp/does-not-exist.yaml")
+			cmd := exec.Command(binaryPath, "validate", "--path", "/tmp/does-not-exist.yaml")
 			err := cmd.Run()
 			Expect(err).To(HaveOccurred())
 		})

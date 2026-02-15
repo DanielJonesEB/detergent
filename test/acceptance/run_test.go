@@ -52,13 +52,13 @@ concerns:
 	})
 
 	It("exits with code 0", func() {
-		cmd := exec.Command(binaryPath, "run", "--once", configPath)
+		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 	})
 
 	It("creates the output branch", func() {
-		cmd := exec.Command(binaryPath, "run", "--once", configPath)
+		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -68,7 +68,7 @@ concerns:
 	})
 
 	It("creates a commit on the output branch with the concern tag", func() {
-		cmd := exec.Command(binaryPath, "run", "--once", configPath)
+		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -78,7 +78,7 @@ concerns:
 	})
 
 	It("includes the Triggered-By trailer", func() {
-		cmd := exec.Command(binaryPath, "run", "--once", configPath)
+		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -102,7 +102,7 @@ concerns:
     watches: main
     prompt: "Review for security issues"
 `)
-		cmd := exec.Command(binaryPath, "run", "--once", stdinConfigPath)
+		cmd := exec.Command(binaryPath, "run", "--once", "--path", stdinConfigPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -115,14 +115,14 @@ concerns:
 	})
 
 	It("is idempotent - running twice doesn't create duplicate commits", func() {
-		cmd1 := exec.Command(binaryPath, "run", "--once", configPath)
+		cmd1 := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 		out1, err := cmd1.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "first run: %s", string(out1))
 
 		// Get commit count after first run
 		count1 := runGitOutput(repoDir, "rev-list", "--count", "detergent/security")
 
-		cmd2 := exec.Command(binaryPath, "run", "--once", configPath)
+		cmd2 := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 		out2, err := cmd2.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "second run: %s", string(out2))
 

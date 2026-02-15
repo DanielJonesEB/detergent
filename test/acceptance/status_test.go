@@ -46,7 +46,7 @@ concerns:
 
 	Context("before any run", func() {
 		It("shows concerns as pending", func() {
-			cmd := exec.Command(binaryPath, "status", configPath)
+			cmd := exec.Command(binaryPath, "status", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred())
 			out := string(output)
@@ -57,13 +57,13 @@ concerns:
 
 	Context("after a successful run", func() {
 		BeforeEach(func() {
-			cmd := exec.Command(binaryPath, "run", "--once", configPath)
+			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 			out, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "run failed: %s", string(out))
 		})
 
 		It("shows concerns as caught up", func() {
-			cmd := exec.Command(binaryPath, "status", configPath)
+			cmd := exec.Command(binaryPath, "status", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred())
 			out := string(output)
@@ -75,7 +75,7 @@ concerns:
 			// Get the main branch HEAD
 			head := runGitOutput(repoDir, "rev-parse", "main")
 
-			cmd := exec.Command(binaryPath, "status", configPath)
+			cmd := exec.Command(binaryPath, "status", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred())
 			// Should contain first 8 chars of the hash
@@ -91,7 +91,7 @@ concerns:
 			writeFile(filepath.Join(statusDir, "security.json"),
 				`{"state":"agent_running","started_at":"2025-01-01T00:00:00Z","head_at_start":"abc123","last_seen":"","pid":99999}`)
 
-			cmd := exec.Command(binaryPath, "status", configPath)
+			cmd := exec.Command(binaryPath, "status", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred())
 			out := string(output)
@@ -113,10 +113,10 @@ concerns:
     watches: main
     prompt: "This will fail"
 `)
-			cmd := exec.Command(binaryPath, "run", "--once", failConfigPath)
+			cmd := exec.Command(binaryPath, "run", "--once", "--path", failConfigPath)
 			cmd.CombinedOutput() // ignore exit code
 
-			cmd2 := exec.Command(binaryPath, "status", failConfigPath)
+			cmd2 := exec.Command(binaryPath, "status", "--path", failConfigPath)
 			output, err := cmd2.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(output)).To(ContainSubstring("failed"))

@@ -166,7 +166,7 @@ concerns:
     watches: main
     prompt: "Security review"
 `)
-			cmd := exec.Command(binaryPath, "run", "--once", filepath.Join(repoDir, "detergent.yaml"))
+			cmd := exec.Command(binaryPath, "run", "--once", "--path", filepath.Join(repoDir, "detergent.yaml"))
 			out, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "run failed: %s", string(out))
 		})
@@ -194,7 +194,7 @@ concerns:
     watches: main
     prompt: "Security review"
 `)
-			cmd := exec.Command(binaryPath, "run", "--once", filepath.Join(repoDir, "detergent.yaml"))
+			cmd := exec.Command(binaryPath, "run", "--once", "--path", filepath.Join(repoDir, "detergent.yaml"))
 			out, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "run failed: %s", string(out))
 		})
@@ -221,7 +221,7 @@ concerns:
     watches: main
     prompt: "Security review"
 `)
-			cmd := exec.Command(binaryPath, "run", "--once", filepath.Join(repoDir, "detergent.yaml"))
+			cmd := exec.Command(binaryPath, "run", "--once", "--path", filepath.Join(repoDir, "detergent.yaml"))
 			out, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "run failed: %s", string(out))
 

@@ -46,7 +46,7 @@ concerns:
 	})
 
 	It("fast-forwards the output branch to match upstream", func() {
-		cmd := exec.Command(binaryPath, "run", "--once", configPath)
+		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -57,7 +57,7 @@ concerns:
 	})
 
 	It("adds a git note with the review marker", func() {
-		cmd := exec.Command(binaryPath, "run", "--once", configPath)
+		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -84,7 +84,7 @@ concerns:
     watches: security
     prompt: "Update documentation"
 `)
-		cmd := exec.Command(binaryPath, "run", "--once", configPath)
+		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
