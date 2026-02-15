@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-REPO="DanielJonesEB/detergent"
+REPO="re-cinq/detergent"
 BINARY="detergent"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 
@@ -117,7 +117,7 @@ install_with_go() {
     fi
 
     info "Installing with go install..."
-    go install "github.com/fission-ai/detergent/cmd/detergent@latest"
+    go install "github.com/re-cinq/detergent/cmd/detergent@latest"
 
     local gobin
     gobin=$(go env GOBIN 2>/dev/null)
@@ -151,7 +151,7 @@ install_from_source() {
     version=$(git describe --tags --always 2>/dev/null || echo "dev")
 
     CGO_ENABLED=0 go build \
-        -ldflags "-s -w -X github.com/fission-ai/detergent/internal/cli.Version=${version}" \
+        -ldflags "-s -w -X github.com/re-cinq/detergent/internal/cli.Version=${version}" \
         -o "${BINARY}" \
         ./cmd/detergent
 

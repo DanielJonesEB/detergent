@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/fission-ai/detergent/internal/cli"
+	"github.com/re-cinq/detergent/internal/cli"
 )
 
 func main() {

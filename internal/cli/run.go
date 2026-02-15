@@ -8,8 +8,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/fission-ai/detergent/internal/config"
-	"github.com/fission-ai/detergent/internal/engine"
+	"github.com/re-cinq/detergent/internal/config"
+	"github.com/re-cinq/detergent/internal/engine"
 	"github.com/spf13/cobra"
 )
 

@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/fission-ai/detergent/internal/config"
+	"github.com/re-cinq/detergent/internal/config"
 	"github.com/spf13/cobra"
 )
 

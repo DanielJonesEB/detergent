@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/fission-ai/detergent/internal/config"
-	"github.com/fission-ai/detergent/internal/engine"
-	gitops "github.com/fission-ai/detergent/internal/git"
+	"github.com/re-cinq/detergent/internal/config"
+	"github.com/re-cinq/detergent/internal/engine"
+	gitops "github.com/re-cinq/detergent/internal/git"
 	"github.com/spf13/cobra"
 )
 

@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/fission-ai/detergent/internal/config"
+	"github.com/re-cinq/detergent/internal/config"
 )
 
 // loadAndValidateConfig loads a config file and validates it, printing errors to stderr.

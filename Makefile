@@ -1,6 +1,6 @@
 BINARY_NAME := detergent
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-LDFLAGS := -s -w -X github.com/fission-ai/detergent/internal/cli.Version=$(VERSION)
+LDFLAGS := -s -w -X github.com/re-cinq/detergent/internal/cli.Version=$(VERSION)
 BUILD_DIR := bin
 
 .PHONY: build test lint fmt clean install

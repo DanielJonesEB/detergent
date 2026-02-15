@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fission-ai/detergent/internal/config"
-	gitops "github.com/fission-ai/detergent/internal/git"
+	"github.com/re-cinq/detergent/internal/config"
+	gitops "github.com/re-cinq/detergent/internal/git"
 )
 
 // LogManager manages per-concern log files for agent output.

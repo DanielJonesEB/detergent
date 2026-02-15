@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/fission-ai/detergent/internal/assets"
+	"github.com/re-cinq/detergent/internal/assets"
 	"github.com/spf13/cobra"
 )
 

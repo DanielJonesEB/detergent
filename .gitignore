@@ -2,6 +2,6 @@ bin/
 dist/
 .detergent/
 notes/
-detergent
+/detergent
 detergent-test
 .claudit/

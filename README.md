@@ -9,7 +9,7 @@ Instead of cramming security, documentation, and style checks into one prompt, D
 ### Quick install (recommended)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/DanielJonesEB/detergent/master/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/re-cinq/detergent/master/scripts/install.sh | bash
 ```
 
 The install script automatically:
@@ -21,7 +21,7 @@ The install script automatically:
 ### From source
 
 ```bash
-go install github.com/fission-ai/detergent/cmd/detergent@latest
+go install github.com/re-cinq/detergent/cmd/detergent@latest
 ```
 
 ## Quick Start

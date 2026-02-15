@@ -5,7 +5,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/fission-ai/detergent/internal/engine"
+	"github.com/re-cinq/detergent/internal/engine"
 	"github.com/spf13/cobra"
 )
 

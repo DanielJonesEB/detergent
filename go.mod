@@ -1,4 +1,4 @@
-module github.com/fission-ai/detergent
+module github.com/re-cinq/detergent
 
 go 1.23.0
 
