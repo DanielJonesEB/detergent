@@ -112,4 +112,4 @@ detergent install
 
 ## License
 
-MIT
+[AI Native Application License (AINAL) v2.0](LICENSE) ([source](https://github.com/re-cinq/ai-native-application-license))
