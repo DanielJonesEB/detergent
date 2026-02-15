@@ -100,8 +100,9 @@ const (
 	ansiCyan   = "\033[36m"
 	ansiYellow = "\033[33m"
 	ansiRed    = "\033[31m"
-	ansiDim    = "\033[2m"
-	ansiReset  = "\033[0m"
+	ansiDim         = "\033[2m"
+	ansiBoldMagenta = "\033[1;35m"
+	ansiReset       = "\033[0m"
 )
 
 func statusSymbol(state, lastResult string) string {

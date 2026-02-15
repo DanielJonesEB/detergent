@@ -176,7 +176,7 @@ func renderStatus(w io.Writer, cfg *config.Config, repoDir string, showLogs bool
 			logPath := engine.LogPathFor(name)
 			tail := readLastLines(logPath, 5)
 			if tail != "" {
-				fmt.Fprintf(w, "\n── %s logs ──\n%s", name, tail)
+				fmt.Fprintf(w, "\n%s── %s logs ──%s\n%s", ansiBoldMagenta, name, ansiReset, tail)
 			}
 		}
 	}
