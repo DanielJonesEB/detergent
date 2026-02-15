@@ -74,14 +74,18 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.24"
-      - name: Integration tests (placeholder)
-        run: echo "Integration tests will run here when CLAUDE_CODE_OAUTH_TOKEN is configured"
+      - name: Build binary
+        run: CGO_ENABLED=0 go build -o bin/detergent ./cmd/detergent
+      - name: Run acceptance tests
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: go test ./test/acceptance/... -v
 
   release:
     name: Release
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master'
-    needs: [lint, test, build]
+    needs: [lint, test, build, integration]
     steps:
       - uses: actions/checkout@v4
         with:
