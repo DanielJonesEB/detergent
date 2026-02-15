@@ -129,7 +129,7 @@ For each concern, continuously:
    - Assemble context (see below)
    - Invoke the agent with the context
    - If changes were made, commit and push to output branch
-   - If no changes were made, fast-forward output branch to upstream and add git notes
+   - If no changes were made, add git notes (output branch already advanced via pre-run rebase)
    - Update last-seen commit
 3. Sleep for poll interval
 
@@ -165,15 +165,17 @@ When triggering an agent, provide:
 ```
 
 ### No-Change Handling
-If an agent makes no changes:
-- Fast-forward the concern's output branch to match upstream (so downstream concerns see the commits)
+Before an agent runs, the concern's output branch is rebased onto the watched branch. This replays any prior concern commits on top of the latest upstream state, handling both the clean (no prior commits) and diverged (prior commits exist) cases.
+
+If an agent makes no changes after the rebase:
+- The output branch is already at or ahead of upstream (rebase already advanced it)
 - Add a git note to each processed commit recording the review: `[{CONCERN_NAME}] Reviewed, no changes needed`
 - Continue watching for future changes
 
 This ensures:
 - Downstream concerns are triggered (they watch the output branch, which has now advanced)
 - Audit trail is preserved (git notes record that the concern reviewed the code)
-- History stays clean (original commits pass through with their hashes intact)
+- History stays clean (original commits pass through, concern commits are replayed on top)
 
 ### Error Handling
 If an agent fails:
@@ -191,7 +193,7 @@ When a concern runs for the first time and its output branch doesn't exist:
 2. Create the worktree for this branch
 
 ### Ongoing Operation
-- The output branch advances either via agent commits (when changes needed) or fast-forward (when no changes needed)
+- The output branch advances via rebase onto the watched branch before each agent run, then optionally via agent commits
 - Downstream concerns see these commits and react
 - Git notes on commits provide audit trail of which concerns reviewed them
 

@@ -210,6 +210,13 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 		}
 	}
 
+	// Rebase output branch onto watched branch so prior concern
+	// commits sit on top of the latest upstream state.
+	if err := rebaseWorktree(wtPath, watchedBranch); err != nil {
+		return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
+			fmt.Errorf("rebasing %s onto %s: %w", outputBranch, watchedBranch, err))
+	}
+
 	// Assemble context
 	context, err := assembleContext(repo, concern, lastSeen, head)
 	if err != nil {
@@ -255,7 +262,7 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 		PID:         pid,
 	})
 
-	// Check for changes and commit (or fast-forward if no changes)
+	// Check for changes and commit
 	changed, err := commitChanges(wtPath, concern, head)
 	if err != nil {
 		return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
@@ -263,12 +270,7 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 	}
 
 	if !changed {
-		// No changes: fast-forward the output branch via merge in worktree
-		if err := fastForwardWorktree(wtPath, watchedBranch); err != nil {
-			return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
-				fmt.Errorf("fast-forwarding %s: %w", outputBranch, err))
-		}
-		// Add git note to each processed commit
+		// Branch already at or ahead of watched after rebase — just add notes
 		commits, _ := repo.CommitsBetween(lastSeen, head)
 		noteMsg := fmt.Sprintf("[%s] Reviewed, no changes needed", strings.ToUpper(concern.Name))
 		for _, hash := range commits {
@@ -433,12 +435,12 @@ func commitChanges(worktreeDir string, concern config.Concern, triggeredBy strin
 	return true, nil
 }
 
-func fastForwardWorktree(worktreeDir, targetBranch string) error {
-	cmd := exec.Command("git", "merge", "--ff-only", targetBranch)
+func rebaseWorktree(worktreeDir, targetBranch string) error {
+	cmd := exec.Command("git", "rebase", targetBranch)
 	cmd.Dir = worktreeDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("git merge --ff-only %s: %s: %w", targetBranch, strings.TrimSpace(string(out)), err)
+		return fmt.Errorf("git rebase %s: %s: %w", targetBranch, strings.TrimSpace(string(out)), err)
 	}
 	return nil
 }
