@@ -33,15 +33,8 @@ var logsCmd = &cobra.Command{
 		concernName := args[0]
 
 		// Validate concern name exists in config
-		found := false
-		for _, c := range cfg.Concerns {
-			if c.Name == concernName {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return fmt.Errorf("unknown concern %q", concernName)
+		if err := cfg.ValidateConcernName(concernName); err != nil {
+			return err
 		}
 
 		logPath := engine.LogPathFor(concernName)

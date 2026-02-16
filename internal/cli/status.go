@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/re-cinq/detergent/internal/config"
@@ -50,8 +49,7 @@ var statusCmd = &cobra.Command{
 }
 
 func followStatus(cfg *config.Config, repoDir string) error {
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	sigCh := setupSignalHandler()
 	defer signal.Stop(sigCh)
 
 	interval := time.Duration(statusInterval * float64(time.Second))
@@ -60,7 +58,7 @@ func followStatus(cfg *config.Config, repoDir string) error {
 	for {
 		var buf bytes.Buffer
 		if err := renderStatus(&buf, cfg, repoDir, true); err != nil {
-			fmt.Fprintf(os.Stderr, "\nerror: %s\n", err)
+			logError("\nerror: %s", err)
 		}
 		output := buf.String()
 

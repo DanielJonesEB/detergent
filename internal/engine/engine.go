@@ -18,6 +18,16 @@ import (
 	gitops "github.com/re-cinq/detergent/internal/git"
 )
 
+// logError writes an error message to stderr.
+func logError(format string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, format+"\n", args...)
+}
+
+// logConcernError writes a concern-specific error message to stderr.
+func logConcernError(concernName string, err error) {
+	fmt.Fprintf(os.Stderr, "concern %s failed: %s\n", concernName, err)
+}
+
 // LogManager manages per-concern log files for agent output.
 type LogManager struct {
 	mu    sync.Mutex
@@ -104,7 +114,7 @@ func RunOnceWithLogs(cfg *config.Config, repoDir string, logMgr *LogManager) err
 				continue
 			}
 			if err := processConcern(cfg, repo, repoDir, c, logMgr); err != nil {
-				fmt.Fprintf(os.Stderr, "concern %s failed: %s\n", c.Name, err)
+				logConcernError(c.Name, err)
 				failed.set(c.Name)
 			}
 		} else {
@@ -333,7 +343,7 @@ func writeSkippedStatus(repoDir, concernName, errorMsg string, pid int) {
 
 // skipUpstreamFailed logs and marks a concern as skipped due to upstream failure.
 func skipUpstreamFailed(repoDir, concernName string, pid int) {
-	fmt.Fprintf(os.Stderr, "skipping %s: upstream concern failed\n", concernName)
+	logError("skipping %s: upstream concern failed", concernName)
 	writeSkippedStatus(repoDir, concernName, "upstream concern failed", pid)
 }
 

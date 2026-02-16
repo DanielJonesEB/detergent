@@ -62,15 +62,6 @@ type GraphEdge struct {
 }
 
 // gatherStatuslineData collects status data for all concerns without serializing.
-// isConcernName returns true if name matches any concern in the config.
-func isConcernName(cfg *config.Config, name string) bool {
-	for _, c := range cfg.Concerns {
-		if c.Name == name {
-			return true
-		}
-	}
-	return false
-}
 
 func gatherStatuslineData(cfg *config.Config, repoDir string) StatuslineOutput {
 	repo := gitops.NewRepo(repoDir)
@@ -81,7 +72,7 @@ func gatherStatuslineData(cfg *config.Config, repoDir string) StatuslineOutput {
 
 	for _, c := range cfg.Concerns {
 		// Build graph edges
-		if isConcernName(cfg, c.Watches) {
+		if cfg.HasConcern(c.Watches) {
 			graph = append(graph, GraphEdge{From: c.Watches, To: c.Name})
 		} else {
 			roots = append(roots, c.Name)

@@ -3,7 +3,9 @@ package cli
 import (
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	"github.com/re-cinq/detergent/internal/config"
 )
@@ -12,7 +14,7 @@ import (
 func loadAndValidateConfig(path string) (*config.Config, error) {
 	cfg, err := config.Load(path)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		logError("Error: %s", err)
 		return nil, err
 	}
 
@@ -85,4 +87,21 @@ func findFileUp(dir string, filenames []string) string {
 		}
 	}
 	return ""
+}
+
+// setupSignalHandler creates a signal channel and registers handlers for SIGINT and SIGTERM.
+func setupSignalHandler() chan os.Signal {
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	return sigCh
+}
+
+// logError writes an error message to stderr.
+func logError(format string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, format+"\n", args...)
+}
+
+// ensureDir creates a directory and all parent directories with 0755 permissions.
+func ensureDir(path string) error {
+	return os.MkdirAll(path, 0755)
 }

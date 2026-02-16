@@ -3,9 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/re-cinq/detergent/internal/config"
@@ -47,8 +44,7 @@ func runDaemon(cfg *config.Config, repoDir string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	sigCh := setupSignalHandler()
 
 	// Create LogManager for daemon lifetime
 	logMgr := engine.NewLogManager()
@@ -62,7 +58,7 @@ func runDaemon(cfg *config.Config, repoDir string) error {
 
 	// Run immediately on startup
 	if err := engine.RunOnceWithLogs(cfg, repoDir, logMgr); err != nil {
-		fmt.Fprintf(os.Stderr, "poll error: %s\n", err)
+		logError("poll error: %s", err)
 	}
 
 	for {
@@ -76,7 +72,7 @@ func runDaemon(cfg *config.Config, repoDir string) error {
 		case <-ticker.C:
 			cfg = reloadConfig(configPath, cfg, ticker)
 			if err := engine.RunOnceWithLogs(cfg, repoDir, logMgr); err != nil {
-				fmt.Fprintf(os.Stderr, "poll error: %s\n", err)
+				logError("poll error: %s", err)
 			}
 		}
 	}
@@ -88,11 +84,11 @@ func runDaemon(cfg *config.Config, repoDir string) error {
 func reloadConfig(path string, prev *config.Config, ticker *time.Ticker) *config.Config {
 	newCfg, err := config.Load(path)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "config reload: %s (keeping previous config)\n", err)
+		logError("config reload: %s (keeping previous config)", err)
 		return prev
 	}
 	if errs := config.Validate(newCfg); len(errs) > 0 {
-		fmt.Fprintf(os.Stderr, "config reload: invalid (%s) (keeping previous config)\n", errs[0])
+		logError("config reload: invalid (%s) (keeping previous config)", errs[0])
 		return prev
 	}
 

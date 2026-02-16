@@ -72,7 +72,7 @@ func initSkills(repoDir string) ([]string, error) {
 		target := filepath.Join(repoDir, ".claude", path)
 
 		if d.IsDir() {
-			return os.MkdirAll(target, 0o755)
+			return ensureDir(target)
 		}
 
 		data, err := assets.Skills.ReadFile(path)
@@ -106,7 +106,7 @@ func initStatusline(repoDir string) error {
 	settingsPath := filepath.Join(repoDir, ".claude", "settings.local.json")
 
 	// Ensure .claude/ exists
-	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o755); err != nil {
+	if err := ensureDir(filepath.Dir(settingsPath)); err != nil {
 		return err
 	}
 

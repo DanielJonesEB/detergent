@@ -185,3 +185,21 @@ func detectCycles(concerns []Concern) error {
 
 	return nil
 }
+
+// HasConcern returns true if a concern with the given name exists in the config.
+func (cfg *Config) HasConcern(name string) bool {
+	for _, c := range cfg.Concerns {
+		if c.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// ValidateConcernName returns an error if the concern name does not exist in the config.
+func (cfg *Config) ValidateConcernName(name string) error {
+	if !cfg.HasConcern(name) {
+		return fmt.Errorf("unknown concern %q", name)
+	}
+	return nil
+}
