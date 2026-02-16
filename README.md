@@ -113,7 +113,7 @@ detergent init
 4. Agent changes are committed with `[CONCERN]` tags and `Triggered-By:` trailers
 5. If no changes needed, a git note records the review
 6. Downstream concerns see upstream commits and can build on them
-7. The statusline shows `*` next to concerns that produced changes — use `/detergent-rebase` to pull them back into your working branch
+7. The statusline shows `✓` next to concerns that are up to date — use `/detergent-rebase` to pull them back into your working branch
 
 ### Getting changes back
 
@@ -149,8 +149,7 @@ If anything goes wrong: `git reset --hard pre-rebase-backup`
 | `◯` | Pending (behind HEAD) |
 | `✗` | Failed |
 | `⊘` | Skipped |
-| `*` | Done, produced modifications |
-| `✓` | Done, no changes needed |
+| `✓` | Done (up to date) |
 | `·` | Never run |
 
 ## Git Conventions
