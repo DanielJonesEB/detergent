@@ -158,6 +158,23 @@ func (f *failedSet) has(name string) bool {
 	return f.m[name]
 }
 
+// concernContext holds the execution context for processing a single concern.
+// It bundles frequently-used parameters to reduce function signatures.
+type concernContext struct {
+	repoDir     string
+	concernName string
+	startedAt   string
+	head        string
+	lastSeen    string
+	pid         int
+}
+
+// fail writes a failed status and returns a wrapped error.
+func (ctx *concernContext) fail(origErr error, wrappedErr error) error {
+	return processConcernFailed(ctx.repoDir, ctx.concernName, ctx.startedAt,
+		ctx.head, ctx.lastSeen, ctx.pid, origErr, wrappedErr)
+}
+
 func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, concern config.Concern, logMgr *LogManager) error {
 	pid := os.Getpid()
 	watchedBranch := ResolveWatchedBranch(cfg, concern)
@@ -190,14 +207,23 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 		return nil
 	}
 
+	// Create execution context to reduce parameter passing
+	ctx := &concernContext{
+		repoDir:     repoDir,
+		concernName: concern.Name,
+		startedAt:   nowRFC3339(),
+		head:        head,
+		lastSeen:    lastSeen,
+		pid:         pid,
+	}
+
 	// Write change-detected status
-	startedAt := nowRFC3339()
-	_ = WriteStatus(repoDir, concern.Name, &ConcernStatus{
+	_ = WriteStatus(ctx.repoDir, ctx.concernName, &ConcernStatus{
 		State:       StateChangeDetected,
-		StartedAt:   startedAt,
-		HeadAtStart: head,
-		LastSeen:    lastSeen,
-		PID:         pid,
+		StartedAt:   ctx.startedAt,
+		HeadAtStart: ctx.head,
+		LastSeen:    ctx.lastSeen,
+		PID:         ctx.pid,
 	})
 
 	outputBranch := cfg.Settings.BranchPrefix + concern.Name
@@ -205,8 +231,7 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 	// Ensure output branch exists
 	if !repo.BranchExists(outputBranch) {
 		if err := repo.CreateBranch(outputBranch, watchedBranch); err != nil {
-			return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
-				fmt.Errorf("creating output branch %s: %w", outputBranch, err))
+			return ctx.fail(err, fmt.Errorf("creating output branch %s: %w", outputBranch, err))
 		}
 	}
 
@@ -214,72 +239,64 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 	wtPath := gitops.WorktreePath(repoDir, cfg.Settings.BranchPrefix, concern.Name)
 	if _, err := os.Stat(wtPath); os.IsNotExist(err) {
 		if err := fileutil.EnsureDir(filepath.Dir(wtPath)); err != nil {
-			return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
-				fmt.Errorf("creating worktree directory: %w", err))
+			return ctx.fail(err, fmt.Errorf("creating worktree directory: %w", err))
 		}
 		if err := repo.CreateWorktree(wtPath, outputBranch); err != nil {
-			return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
-				fmt.Errorf("creating worktree: %w", err))
+			return ctx.fail(err, fmt.Errorf("creating worktree: %w", err))
 		}
 	}
 
 	// Rebase output branch onto watched branch so prior concern
 	// commits sit on top of the latest upstream state.
 	if err := rebaseWorktree(wtPath, watchedBranch); err != nil {
-		return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
-			fmt.Errorf("rebasing %s onto %s: %w", outputBranch, watchedBranch, err))
+		return ctx.fail(err, fmt.Errorf("rebasing %s onto %s: %w", outputBranch, watchedBranch, err))
 	}
 
 	// Assemble context
 	context, err := assembleContext(repo, cfg, concern, lastSeen, head)
 	if err != nil {
-		return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
-			fmt.Errorf("assembling context: %w", err))
+		return ctx.fail(err, fmt.Errorf("assembling context: %w", err))
 	}
 
 	// Get log file for this concern
 	logFile, err := logMgr.getLogFile(concern.Name)
 	if err != nil {
-		return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
-			fmt.Errorf("getting log file: %w", err))
+		return ctx.fail(err, fmt.Errorf("getting log file: %w", err))
 	}
 
 	// Write commit context header to log file
 	header := fmt.Sprintf("--- Processing %s at %s ---\n", head, time.Now().UTC().Format(time.RFC3339))
 	if _, err := logFile.WriteString(header); err != nil {
-		return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
-			fmt.Errorf("writing log header: %w", err))
+		return ctx.fail(err, fmt.Errorf("writing log header: %w", err))
 	}
 
 	// Write agent-started status
-	_ = WriteStatus(repoDir, concern.Name, &ConcernStatus{
+	_ = WriteStatus(ctx.repoDir, ctx.concernName, &ConcernStatus{
 		State:       StateAgentRunning,
-		StartedAt:   startedAt,
-		HeadAtStart: head,
-		LastSeen:    lastSeen,
-		PID:         pid,
+		StartedAt:   ctx.startedAt,
+		HeadAtStart: ctx.head,
+		LastSeen:    ctx.lastSeen,
+		PID:         ctx.pid,
 	})
 
 	// Invoke agent in worktree
 	if err := invokeAgent(cfg, wtPath, context, logFile); err != nil {
-		return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
-			fmt.Errorf("invoking agent: %w", err))
+		return ctx.fail(err, fmt.Errorf("invoking agent: %w", err))
 	}
 
 	// Write agent-succeeded status
-	_ = WriteStatus(repoDir, concern.Name, &ConcernStatus{
+	_ = WriteStatus(ctx.repoDir, ctx.concernName, &ConcernStatus{
 		State:       StateCommitting,
-		StartedAt:   startedAt,
-		HeadAtStart: head,
-		LastSeen:    lastSeen,
-		PID:         pid,
+		StartedAt:   ctx.startedAt,
+		HeadAtStart:  ctx.head,
+		LastSeen:    ctx.lastSeen,
+		PID:         ctx.pid,
 	})
 
 	// Check for changes and commit
 	changed, err := commitChanges(wtPath, concern, head)
 	if err != nil {
-		return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
-			fmt.Errorf("committing changes: %w", err))
+		return ctx.fail(err, fmt.Errorf("committing changes: %w", err))
 	}
 
 	if !changed {
@@ -293,8 +310,7 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 
 	// Update last-seen
 	if err := SetLastSeen(repoDir, concern.Name, head); err != nil {
-		return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
-			fmt.Errorf("updating last-seen marker: %w", err))
+		return ctx.fail(err, fmt.Errorf("updating last-seen marker: %w", err))
 	}
 
 	// Write idle status with result
@@ -302,14 +318,14 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 	if changed {
 		result = ResultModified
 	}
-	_ = WriteStatus(repoDir, concern.Name, &ConcernStatus{
+	_ = WriteStatus(ctx.repoDir, ctx.concernName, &ConcernStatus{
 		State:       StateIdle,
 		LastResult:  result,
-		StartedAt:   startedAt,
+		StartedAt:   ctx.startedAt,
 		CompletedAt: nowRFC3339(),
-		LastSeen:    head,
-		HeadAtStart: head,
-		PID:         pid,
+		LastSeen:    ctx.head,
+		HeadAtStart: ctx.head,
+		PID:         ctx.pid,
 	})
 
 	return nil
@@ -374,6 +390,21 @@ func ResolveWatchedBranch(cfg *config.Config, concern config.Concern) string {
 	return concern.Watches
 }
 
+// forEachCommitMessage iterates over commits and calls fn with each commit hash and message.
+// Returns early with error if CommitMessage fails.
+func forEachCommitMessage(repo *gitops.Repo, commits []string, fn func(hash, msg string) error) error {
+	for _, hash := range commits {
+		msg, err := repo.CommitMessage(hash)
+		if err != nil {
+			return err
+		}
+		if err := fn(hash, msg); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func assembleContext(repo *gitops.Repo, cfg *config.Config, concern config.Concern, lastSeen, head string) (string, error) {
 	commits, err := repo.CommitsBetween(lastSeen, head)
 	if err != nil {
@@ -391,13 +422,9 @@ func assembleContext(repo *gitops.Repo, cfg *config.Config, concern config.Conce
 	sb.WriteString(concern.Prompt + "\n\n")
 	sb.WriteString("## New commits to review\n\n")
 
-	for _, hash := range commits {
-		msg, err := repo.CommitMessage(hash)
-		if err != nil {
-			return "", err
-		}
+	err = forEachCommitMessage(repo, commits, func(hash, msg string) error {
 		if skipAgent && isAgentCommit(msg) {
-			continue
+			return nil
 		}
 		sb.WriteString("### Commit " + hash[:8] + "\n")
 		sb.WriteString("Message: " + msg + "\n\n")
@@ -407,6 +434,10 @@ func assembleContext(repo *gitops.Repo, cfg *config.Config, concern config.Conce
 		if err == nil && diff != "" {
 			sb.WriteString("```diff\n" + diff + "\n```\n\n")
 		}
+		return nil
+	})
+	if err != nil {
+		return "", err
 	}
 
 	return sb.String(), nil
@@ -528,20 +559,18 @@ func allCommitsSkipped(repo *gitops.Repo, lastSeen, head string, skipAgentCommit
 	if err != nil || len(commits) == 0 {
 		return false
 	}
-	for _, hash := range commits {
-		msg, err := repo.CommitMessage(hash)
-		if err != nil {
-			return false
-		}
+	allSkipped := true
+	err = forEachCommitMessage(repo, commits, func(hash, msg string) error {
 		if hasSkipMarker(msg) {
-			continue
+			return nil
 		}
 		if skipAgentCommits && isAgentCommit(msg) {
-			continue
+			return nil
 		}
-		return false
-	}
-	return true
+		allSkipped = false
+		return nil
+	})
+	return err == nil && allSkipped
 }
 
 // hasSkipMarker checks if a commit message contains a recognized skip marker.
