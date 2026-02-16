@@ -168,8 +168,8 @@ concerns:
 			Expect(err).NotTo(HaveOccurred())
 
 			text := stripANSI(string(output))
-			// Modified state uses * symbol
-			Expect(text).To(ContainSubstring("security *"))
+			// When caught up (idle), shows ✓ regardless of whether modifications were produced
+			Expect(text).To(ContainSubstring("security ✓"))
 		})
 	})
 
