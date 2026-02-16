@@ -303,15 +303,8 @@ func rebaseHint(data StatuslineOutput, concerns map[string]ConcernData, downstre
 		}
 	}
 
-	// Any concern in the chain must have produced modifications
-	anyModified := false
-	for _, c := range concerns {
-		if c.LastResult == engine.ResultModified {
-			anyModified = true
-			break
-		}
-	}
-	if !anyModified {
+	// The terminal concern branch must have commits ahead of the root watched branch
+	if !data.HasUnpickedCommits {
 		return ""
 	}
 

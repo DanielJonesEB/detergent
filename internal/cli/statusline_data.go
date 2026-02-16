@@ -36,10 +36,11 @@ var statuslineDataCmd = &cobra.Command{
 
 // StatuslineOutput is the top-level JSON blob for statusline rendering.
 type StatuslineOutput struct {
-	Concerns     []ConcernData `json:"concerns"`
-	Roots        []string      `json:"roots"`
-	Graph        []GraphEdge   `json:"graph"`
-	BranchPrefix string        `json:"branch_prefix"`
+	Concerns           []ConcernData `json:"concerns"`
+	Roots              []string      `json:"roots"`
+	Graph              []GraphEdge   `json:"graph"`
+	BranchPrefix       string        `json:"branch_prefix"`
+	HasUnpickedCommits bool          `json:"has_unpicked_commits"`
 }
 
 // ConcernData represents one concern's status for statusline rendering.
@@ -131,11 +132,34 @@ func gatherStatuslineData(cfg *config.Config, repoDir string) StatuslineOutput {
 		concerns = append(concerns, cd)
 	}
 
+	// Determine if the terminal concern branch has commits ahead of the root watched branch.
+	hasUnpicked := false
+	downstream := make(map[string]bool)
+	for _, e := range graph {
+		downstream[e.From] = true
+	}
+	var terminals []string
+	for _, c := range concerns {
+		if !downstream[c.Name] {
+			terminals = append(terminals, c.Name)
+		}
+	}
+	if len(terminals) == 1 {
+		terminalBranch := cfg.Settings.BranchPrefix + terminals[0]
+		rootWatched := cfg.Settings.Watches
+		if repo.BranchExists(terminalBranch) {
+			if commits, err := repo.CommitsBetween(rootWatched, terminalBranch); err == nil && len(commits) > 0 {
+				hasUnpicked = true
+			}
+		}
+	}
+
 	return StatuslineOutput{
-		Concerns:     concerns,
-		Roots:        roots,
-		Graph:        graph,
-		BranchPrefix: cfg.Settings.BranchPrefix,
+		Concerns:           concerns,
+		Roots:              roots,
+		Graph:              graph,
+		BranchPrefix:       cfg.Settings.BranchPrefix,
+		HasUnpickedCommits: hasUnpicked,
 	}
 }
 

@@ -5,15 +5,17 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 type statuslineOutput struct {
-	Concerns []statuslineConcern `json:"concerns"`
-	Roots    []string            `json:"roots"`
-	Graph    []graphEdge         `json:"graph"`
+	Concerns           []statuslineConcern `json:"concerns"`
+	Roots              []string            `json:"roots"`
+	Graph              []graphEdge         `json:"graph"`
+	HasUnpickedCommits bool                `json:"has_unpicked_commits"`
 }
 
 type statuslineConcern struct {
@@ -227,6 +229,74 @@ concerns:
 			var result statuslineOutput
 			Expect(json.Unmarshal(output, &result)).To(Succeed())
 			Expect(result.Concerns[0].State).To(Equal("pending"))
+		})
+	})
+
+	Context("has_unpicked_commits detection", func() {
+		BeforeEach(func() {
+			configPath = filepath.Join(repoDir, "detergent.yaml")
+			writeFile(configPath, `
+agent:
+  command: "sh"
+  args: ["-c", "echo 'reviewed' > agent-review.txt"]
+
+concerns:
+  - name: security
+    watches: main
+    prompt: "Security review"
+`)
+			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+			out, err := cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), "run failed: %s", string(out))
+		})
+
+		It("is true when concern branch has commits ahead of watched branch", func() {
+			cmd := exec.Command(binaryPath, "statusline-data", "--path", configPath)
+			output, err := cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred())
+
+			var result statuslineOutput
+			Expect(json.Unmarshal(output, &result)).To(Succeed())
+			Expect(result.HasUnpickedCommits).To(BeTrue())
+		})
+
+		It("renders rebase hint in statusline", func() {
+			cmd := exec.Command(binaryPath, "statusline")
+			cmd.Stdin = strings.NewReader(`{"cwd":"` + repoDir + `"}`)
+			output, err := cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred())
+
+			text := stripANSI(string(output))
+			Expect(text).To(ContainSubstring("/detergent-rebase"))
+		})
+
+	})
+
+	Context("has_unpicked_commits is false for noop agent", func() {
+		BeforeEach(func() {
+			configPath = filepath.Join(repoDir, "detergent.yaml")
+			writeFile(configPath, `
+agent:
+  command: "true"
+
+concerns:
+  - name: security
+    watches: main
+    prompt: "Security review"
+`)
+			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+			out, err := cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), "run failed: %s", string(out))
+		})
+
+		It("is false when concern branch has no commits ahead", func() {
+			cmd := exec.Command(binaryPath, "statusline-data", "--path", configPath)
+			output, err := cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred())
+
+			var result statuslineOutput
+			Expect(json.Unmarshal(output, &result)).To(Succeed())
+			Expect(result.HasUnpickedCommits).To(BeFalse())
 		})
 	})
 
