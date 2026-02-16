@@ -178,8 +178,9 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 		return nil // nothing new
 	}
 
-	// Check if all new commits have skip markers
-	if allCommitsSkipped(repo, lastSeen, head) {
+	// Check if all new commits have skip markers (or agent commits on external branches)
+	skipAgentCommits := WatchesExternalBranch(cfg, concern)
+	if allCommitsSkipped(repo, lastSeen, head, skipAgentCommits) {
 		// Advance last-seen so we don't re-check these commits
 		if err := SetLastSeen(repoDir, concern.Name, head); err != nil {
 			return fmt.Errorf("updating last-seen after skip: %w", err)
@@ -229,7 +230,7 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 	}
 
 	// Assemble context
-	context, err := assembleContext(repo, concern, lastSeen, head)
+	context, err := assembleContext(repo, cfg, concern, lastSeen, head)
 	if err != nil {
 		return processConcernFailed(repoDir, concern.Name, startedAt, head, lastSeen, pid, err,
 			fmt.Errorf("assembling context: %w", err))
@@ -372,11 +373,15 @@ func ResolveWatchedBranch(cfg *config.Config, concern config.Concern) string {
 	return concern.Watches
 }
 
-func assembleContext(repo *gitops.Repo, concern config.Concern, lastSeen, head string) (string, error) {
+func assembleContext(repo *gitops.Repo, cfg *config.Config, concern config.Concern, lastSeen, head string) (string, error) {
 	commits, err := repo.CommitsBetween(lastSeen, head)
 	if err != nil {
 		return "", err
 	}
+
+	// When watching an external branch, filter out agent commits from context.
+	// After a rebase, these are our own output coming back — not new work.
+	skipAgent := WatchesExternalBranch(cfg, concern)
 
 	var sb strings.Builder
 	sb.WriteString("You are running non-interactively. Do not ask questions or wait for confirmation. If something is unclear, make your best judgement and proceed.\n\n")
@@ -389,6 +394,9 @@ func assembleContext(repo *gitops.Repo, concern config.Concern, lastSeen, head s
 		msg, err := repo.CommitMessage(hash)
 		if err != nil {
 			return "", err
+		}
+		if skipAgent && isAgentCommit(msg) {
+			continue
 		}
 		sb.WriteString("### Commit " + hash[:8] + "\n")
 		sb.WriteString("Message: " + msg + "\n\n")
@@ -510,8 +518,11 @@ func rebaseWorktree(worktreeDir, targetBranch string) error {
 
 // allCommitsSkipped returns true if every commit between lastSeen and head
 // contains a skip marker ([skip ci], [ci skip], [skip detergent], [detergent skip]).
+// When skipAgentCommits is true, commits with a Triggered-By trailer are also
+// treated as skippable. This is used for concerns watching external branches
+// (like main) where agent commits arrived via rebase and should not re-trigger.
 // Returns false if there are no commits or if any commit lacks a skip marker.
-func allCommitsSkipped(repo *gitops.Repo, lastSeen, head string) bool {
+func allCommitsSkipped(repo *gitops.Repo, lastSeen, head string, skipAgentCommits bool) bool {
 	commits, err := repo.CommitsBetween(lastSeen, head)
 	if err != nil || len(commits) == 0 {
 		return false
@@ -521,9 +532,13 @@ func allCommitsSkipped(repo *gitops.Repo, lastSeen, head string) bool {
 		if err != nil {
 			return false
 		}
-		if !hasSkipMarker(msg) {
-			return false
+		if hasSkipMarker(msg) {
+			continue
 		}
+		if skipAgentCommits && isAgentCommit(msg) {
+			continue
+		}
+		return false
 	}
 	return true
 }
@@ -535,6 +550,28 @@ func hasSkipMarker(msg string) bool {
 		strings.Contains(lower, "[ci skip]") ||
 		strings.Contains(lower, "[skip detergent]") ||
 		strings.Contains(lower, "[detergent skip]")
+}
+
+// isAgentCommit checks if a commit message was produced by the detergent agent.
+// Agent commits contain a "Triggered-By:" trailer (see commitChanges).
+func isAgentCommit(msg string) bool {
+	for _, line := range strings.Split(msg, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "Triggered-By:") {
+			return true
+		}
+	}
+	return false
+}
+
+// WatchesExternalBranch returns true if the concern watches a branch that is
+// not another concern's output — i.e., it watches an external branch like "main".
+func WatchesExternalBranch(cfg *config.Config, concern config.Concern) bool {
+	for _, c := range cfg.Concerns {
+		if c.Name == concern.Watches {
+			return false
+		}
+	}
+	return true
 }
 
 // topologicalLevels groups concerns into levels for parallel execution.
