@@ -284,7 +284,7 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 	_ = WriteStatus(ctx.repoDir, ctx.concernName, &ConcernStatus{
 		State:       StateCommitting,
 		StartedAt:   ctx.startedAt,
-		HeadAtStart:  ctx.head,
+		HeadAtStart: ctx.head,
 		LastSeen:    ctx.lastSeen,
 		PID:         ctx.pid,
 	})
