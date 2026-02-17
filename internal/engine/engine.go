@@ -235,13 +235,7 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 	}
 
 	// Write change-detected status
-	_ = WriteStatus(ctx.repoDir, ctx.concernName, &ConcernStatus{
-		State:       StateChangeDetected,
-		StartedAt:   ctx.startedAt,
-		HeadAtStart: ctx.head,
-		LastSeen:    ctx.lastSeen,
-		PID:         ctx.pid,
-	})
+	writeChangeDetectedStatus(ctx.repoDir, ctx.concernName, ctx.startedAt, ctx.head, ctx.lastSeen, ctx.pid)
 
 	outputBranch := cfg.Settings.BranchPrefix + concern.Name
 
@@ -293,13 +287,7 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 	}
 
 	// Write agent-started status
-	_ = WriteStatus(ctx.repoDir, ctx.concernName, &ConcernStatus{
-		State:       StateAgentRunning,
-		StartedAt:   ctx.startedAt,
-		HeadAtStart: ctx.head,
-		LastSeen:    ctx.lastSeen,
-		PID:         ctx.pid,
-	})
+	writeAgentRunningStatus(ctx.repoDir, ctx.concernName, ctx.startedAt, ctx.head, ctx.lastSeen, ctx.pid)
 
 	// Snapshot worktree HEAD before agent runs so we can detect rogue commits
 	wtRepo := gitops.NewRepo(wtPath)
@@ -327,13 +315,7 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 	}
 
 	// Write agent-succeeded status
-	_ = WriteStatus(ctx.repoDir, ctx.concernName, &ConcernStatus{
-		State:       StateCommitting,
-		StartedAt:   ctx.startedAt,
-		HeadAtStart: ctx.head,
-		LastSeen:    ctx.lastSeen,
-		PID:         ctx.pid,
-	})
+	writeCommittingStatus(ctx.repoDir, ctx.concernName, ctx.startedAt, ctx.head, ctx.lastSeen, ctx.pid)
 
 	// Check for changes and commit
 	changed, err := commitChanges(wtPath, concern, head)
@@ -360,15 +342,7 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 	if changed {
 		result = ResultModified
 	}
-	_ = WriteStatus(ctx.repoDir, ctx.concernName, &ConcernStatus{
-		State:       StateIdle,
-		LastResult:  result,
-		StartedAt:   ctx.startedAt,
-		CompletedAt: nowRFC3339(),
-		LastSeen:    ctx.head,
-		HeadAtStart: ctx.head,
-		PID:         ctx.pid,
-	})
+	writeIdleWithResultStatus(ctx.repoDir, ctx.concernName, ctx.startedAt, nowRFC3339(), ctx.head, result, ctx.pid)
 
 	return nil
 }
@@ -380,6 +354,52 @@ func getLastResult(repoDir, concernName string) string {
 		return prevStatus.LastResult
 	}
 	return ""
+}
+
+// writeChangeDetectedStatus writes a change-detected status.
+func writeChangeDetectedStatus(repoDir, concernName, startedAt, head, lastSeen string, pid int) {
+	_ = WriteStatus(repoDir, concernName, &ConcernStatus{
+		State:       StateChangeDetected,
+		StartedAt:   startedAt,
+		HeadAtStart: head,
+		LastSeen:    lastSeen,
+		PID:         pid,
+	})
+}
+
+// writeAgentRunningStatus writes an agent-running status.
+func writeAgentRunningStatus(repoDir, concernName, startedAt, head, lastSeen string, pid int) {
+	_ = WriteStatus(repoDir, concernName, &ConcernStatus{
+		State:       StateAgentRunning,
+		StartedAt:   startedAt,
+		HeadAtStart: head,
+		LastSeen:    lastSeen,
+		PID:         pid,
+	})
+}
+
+// writeCommittingStatus writes a committing status.
+func writeCommittingStatus(repoDir, concernName, startedAt, head, lastSeen string, pid int) {
+	_ = WriteStatus(repoDir, concernName, &ConcernStatus{
+		State:       StateCommitting,
+		StartedAt:   startedAt,
+		HeadAtStart: head,
+		LastSeen:    lastSeen,
+		PID:         pid,
+	})
+}
+
+// writeIdleWithResultStatus writes an idle status with a specific result.
+func writeIdleWithResultStatus(repoDir, concernName, startedAt, completedAt, head, result string, pid int) {
+	_ = WriteStatus(repoDir, concernName, &ConcernStatus{
+		State:       StateIdle,
+		LastResult:  result,
+		StartedAt:   startedAt,
+		CompletedAt: completedAt,
+		LastSeen:    head,
+		HeadAtStart: head,
+		PID:         pid,
+	})
 }
 
 // writeIdleStatus writes an idle status, preserving the previous LastResult.

@@ -1,6 +1,10 @@
 package cli
 
-import "github.com/re-cinq/detergent/internal/engine"
+import (
+	"fmt"
+
+	"github.com/re-cinq/detergent/internal/engine"
+)
 
 // ANSI escape codes for terminal colors
 const (
@@ -35,4 +39,18 @@ func stateDisplay(state, lastResult string) (symbol, color string) {
 	default:
 		return "◯", ansiReset
 	}
+}
+
+// formatStatus formats a concern status line with symbol, color, and message.
+// Returns the complete formatted string including ANSI codes and trailing reset.
+func formatStatus(state, lastResult, name, message string) string {
+	sym, clr := stateDisplay(state, lastResult)
+	return fmt.Sprintf("  %s%s  %-20s  %s%s", clr, sym, name, message, ansiReset)
+}
+
+// formatStatusNoMessage formats a concern status line with only symbol and color.
+// Used when there's no additional message to display.
+func formatStatusNoMessage(state, lastResult, name string) string {
+	sym, clr := stateDisplay(state, lastResult)
+	return fmt.Sprintf("  %s%s  %-20s%s", clr, sym, name, ansiReset)
 }
