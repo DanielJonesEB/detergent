@@ -32,12 +32,7 @@ var statusCmd = &cobra.Command{
 	Short: "Show the status of each concern",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := loadAndValidateConfig(configPath)
-		if err != nil {
-			return err
-		}
-
-		repoDir, err := resolveRepo(configPath)
+		cfg, repoDir, err := loadConfigAndRepo(configPath)
 		if err != nil {
 			return err
 		}
@@ -115,34 +110,33 @@ func renderStatus(w io.Writer, cfg *config.Config, repoDir string, showLogs bool
 		if status != nil {
 			// Check for stale active states (process died)
 			if engine.IsActiveState(status.State) && !engine.IsProcessAlive(status.PID) {
-				sym, clr := stateDisplay(engine.StateFailed, "")
-				fmt.Fprintf(w, "  %s%s  %-20s  stale (process %d no longer running, was: %s)%s\n", clr, sym, c.Name, status.PID, status.State, ansiReset)
+				msg := fmt.Sprintf("stale (process %d no longer running, was: %s)", status.PID, status.State)
+				fmt.Fprintln(w, formatStatus(engine.StateFailed, "", c.Name, msg))
 				continue
 			}
 
 			switch status.State {
 			case engine.StateChangeDetected:
-				sym, clr := stateDisplay(status.State, "")
-				fmt.Fprintf(w, "  %s%s  %-20s  change detected at %s%s\n", clr, sym, c.Name, short(status.HeadAtStart), ansiReset)
+				msg := fmt.Sprintf("change detected at %s", short(status.HeadAtStart))
+				fmt.Fprintln(w, formatStatus(status.State, "", c.Name, msg))
 				activeConcerns = append(activeConcerns, c.Name)
 				continue
 			case engine.StateAgentRunning:
-				sym, clr := stateDisplay(status.State, "")
-				fmt.Fprintf(w, "  %s%s  %-20s  agent running (since %s)%s\n", clr, sym, c.Name, status.StartedAt, ansiReset)
+				msg := fmt.Sprintf("agent running (since %s)", status.StartedAt)
+				fmt.Fprintln(w, formatStatus(status.State, "", c.Name, msg))
 				activeConcerns = append(activeConcerns, c.Name)
 				continue
 			case engine.StateCommitting:
-				sym, clr := stateDisplay(status.State, "")
-				fmt.Fprintf(w, "  %s%s  %-20s  committing changes%s\n", clr, sym, c.Name, ansiReset)
+				fmt.Fprintln(w, formatStatus(status.State, "", c.Name, "committing changes"))
 				activeConcerns = append(activeConcerns, c.Name)
 				continue
 			case engine.StateFailed:
-				sym, clr := stateDisplay(status.State, "")
-				fmt.Fprintf(w, "  %s%s  %-20s  failed: %s%s\n", clr, sym, c.Name, status.Error, ansiReset)
+				msg := fmt.Sprintf("failed: %s", status.Error)
+				fmt.Fprintln(w, formatStatus(status.State, "", c.Name, msg))
 				continue
 			case engine.StateSkipped:
-				sym, clr := stateDisplay(status.State, "")
-				fmt.Fprintf(w, "  %s%s  %-20s  skipped: %s%s\n", clr, sym, c.Name, status.Error, ansiReset)
+				msg := fmt.Sprintf("skipped: %s", status.Error)
+				fmt.Fprintln(w, formatStatus(status.State, "", c.Name, msg))
 				continue
 			}
 		}
@@ -155,20 +149,19 @@ func renderStatus(w io.Writer, cfg *config.Config, repoDir string, showLogs bool
 		head, err := repo.HeadCommit(watchedBranch)
 		if err != nil {
 			// Branch might not exist yet
-			sym, clr := stateDisplay("unknown", "")
-			fmt.Fprintf(w, "  %s%s  %-20s  (not started - watched branch %s not found)%s\n", clr, sym, c.Name, watchedBranch, ansiReset)
+			msg := fmt.Sprintf("(not started - watched branch %s not found)", watchedBranch)
+			fmt.Fprintln(w, formatStatus("unknown", "", c.Name, msg))
 			continue
 		}
 
 		if lastSeen == "" {
-			sym, clr := stateDisplay("pending", "")
-			fmt.Fprintf(w, "  %s%s  %-20s  pending (never processed)%s\n", clr, sym, c.Name, ansiReset)
+			fmt.Fprintln(w, formatStatus("pending", "", c.Name, "pending (never processed)"))
 		} else if lastSeen == head {
-			sym, clr := stateDisplay(engine.StateIdle, "result")
-			fmt.Fprintf(w, "  %s%s  %-20s  caught up at %s%s\n", clr, sym, c.Name, short(lastSeen), ansiReset)
+			msg := fmt.Sprintf("caught up at %s", short(lastSeen))
+			fmt.Fprintln(w, formatStatus(engine.StateIdle, "result", c.Name, msg))
 		} else {
-			sym, clr := stateDisplay("pending", "")
-			fmt.Fprintf(w, "  %s%s  %-20s  pending (last: %s, head: %s)%s\n", clr, sym, c.Name, short(lastSeen), short(head), ansiReset)
+			msg := fmt.Sprintf("pending (last: %s, head: %s)", short(lastSeen), short(head))
+			fmt.Fprintln(w, formatStatus("pending", "", c.Name, msg))
 		}
 	}
 

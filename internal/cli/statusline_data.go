@@ -20,12 +20,7 @@ var statuslineDataCmd = &cobra.Command{
 	Hidden: true,
 	Args:   cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := loadAndValidateConfig(configPath)
-		if err != nil {
-			return err
-		}
-
-		repoDir, err := resolveRepo(configPath)
+		cfg, repoDir, err := loadConfigAndRepo(configPath)
 		if err != nil {
 			return err
 		}
@@ -39,7 +34,6 @@ type StatuslineOutput struct {
 	Concerns           []ConcernData `json:"concerns"`
 	Roots              []string      `json:"roots"`
 	Graph              []GraphEdge   `json:"graph"`
-	BranchPrefix       string        `json:"branch_prefix"`
 	HasUnpickedCommits bool          `json:"has_unpicked_commits"`
 }
 
@@ -67,15 +61,13 @@ func gatherStatuslineData(cfg *config.Config, repoDir string) StatuslineOutput {
 	repo := gitops.NewRepo(repoDir)
 
 	concerns := make([]ConcernData, 0)
-	roots := make([]string, 0)
+	roots := cfg.FindRoots()
 	graph := make([]GraphEdge, 0)
 
 	for _, c := range cfg.Concerns {
 		// Build graph edges
 		if cfg.HasConcern(c.Watches) {
 			graph = append(graph, GraphEdge{From: c.Watches, To: c.Name})
-		} else {
-			roots = append(roots, c.Name)
 		}
 
 		// Read status file
@@ -149,7 +141,6 @@ func gatherStatuslineData(cfg *config.Config, repoDir string) StatuslineOutput {
 		Concerns:           concerns,
 		Roots:              roots,
 		Graph:              graph,
-		BranchPrefix:       cfg.Settings.BranchPrefix,
 		HasUnpickedCommits: hasUnpicked,
 	}
 }
