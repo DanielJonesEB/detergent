@@ -301,9 +301,29 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 		PID:         ctx.pid,
 	})
 
+	// Snapshot worktree HEAD before agent runs so we can detect rogue commits
+	wtRepo := gitops.NewRepo(wtPath)
+	preAgentHead, err := wtRepo.HeadCommit("HEAD")
+	if err != nil {
+		return ctx.fail(err, fmt.Errorf("snapshotting worktree HEAD: %w", err))
+	}
+
 	// Invoke agent in worktree
 	if err := invokeAgent(cfg, wtPath, context, logFile); err != nil {
 		return ctx.fail(err, fmt.Errorf("invoking agent: %w", err))
+	}
+
+	// Soft-reset any commits the agent made directly — we need the file
+	// changes but will create a proper commit with Triggered-By trailers.
+	postAgentHead, err := wtRepo.HeadCommit("HEAD")
+	if err != nil {
+		return ctx.fail(err, fmt.Errorf("checking worktree HEAD after agent: %w", err))
+	}
+	if postAgentHead != preAgentHead {
+		fileutil.LogError("concern %s: agent made direct commits — soft-resetting to preserve changes", concern.Name)
+		if err := wtRepo.ResetSoft(preAgentHead); err != nil {
+			return ctx.fail(err, fmt.Errorf("soft-resetting agent commits: %w", err))
+		}
 	}
 
 	// Write agent-succeeded status
@@ -438,7 +458,7 @@ func assembleContext(repo *gitops.Repo, cfg *config.Config, concern config.Conce
 	skipAgent := WatchesExternalBranch(cfg, concern)
 
 	var sb strings.Builder
-	sb.WriteString("You are running non-interactively. Do not ask questions or wait for confirmation. If something is unclear, make your best judgement and proceed.\n\n")
+	sb.WriteString("You are running non-interactively. Do not ask questions or wait for confirmation.\nIf something is unclear, make your best judgement and proceed.\nDo not run git commit — your changes will be committed automatically.\n\n")
 	sb.WriteString("# Concern: " + concern.Name + "\n\n")
 	sb.WriteString("## Prompt\n\n")
 	sb.WriteString(concern.Prompt + "\n\n")
@@ -599,11 +619,36 @@ func hasSkipMarker(msg string) bool {
 		strings.Contains(lower, "[detergent skip]")
 }
 
-// isAgentCommit checks if a commit message was produced by the detergent agent.
-// Agent commits contain a "Triggered-By:" trailer (see commitChanges).
+// isAgentCommit checks if a commit message was produced by the detergent agent
+// or by a known AI coding tool. Agent commits contain a "Triggered-By:" trailer
+// (see commitChanges). As a safety net, commits with a Co-Authored-By line
+// matching known AI tool signatures are also treated as agent commits.
 func isAgentCommit(msg string) bool {
 	for _, line := range strings.Split(msg, "\n") {
-		if strings.HasPrefix(strings.TrimSpace(line), "Triggered-By:") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "Triggered-By:") {
+			return true
+		}
+		if strings.HasPrefix(trimmed, "Co-Authored-By:") && containsAISignature(trimmed) {
+			return true
+		}
+	}
+	return false
+}
+
+// containsAISignature checks if a Co-Authored-By line contains a known
+// AI coding tool signature (case-insensitive).
+func containsAISignature(line string) bool {
+	lower := strings.ToLower(line)
+	signatures := []string{
+		"claude",
+		"copilot",
+		"cursor",
+		"noreply@anthropic.com",
+		"noreply@github.com",
+	}
+	for _, sig := range signatures {
+		if strings.Contains(lower, sig) {
 			return true
 		}
 	}

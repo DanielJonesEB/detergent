@@ -126,6 +126,12 @@ func (r *Repo) Commit(message string) error {
 	return err
 }
 
+// ResetSoft performs a soft reset to the given ref, preserving file changes.
+func (r *Repo) ResetSoft(ref string) error {
+	_, err := r.run("reset", "--soft", ref)
+	return err
+}
+
 // Rebase rebases the current branch onto targetBranch.
 // If conflicts occur, aborts the rebase and hard resets to targetBranch.
 func (r *Repo) Rebase(targetBranch string) error {

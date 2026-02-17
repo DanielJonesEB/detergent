@@ -65,6 +65,54 @@ concerns:
 		Expect(docsCount2).To(Equal(docsCount1), "docs branch should have no new commits")
 	})
 
+	It("soft-resets agent commits and uses Triggered-By trailers", func() {
+		// Use an agent that makes a direct git commit (simulating Claude Code committing)
+		commitConfigPath := filepath.Join(repoDir, "detergent-commit.yaml")
+		writeFile(commitConfigPath, `
+agent:
+  command: "sh"
+  args: ["-c", "echo agent-was-here > agent-file.txt && git add -A && git commit -m 'agent did this\n\nCo-Authored-By: Claude <noreply@anthropic.com>'"]
+
+concerns:
+  - name: security
+    watches: main
+    prompt: "Review for security issues"
+`)
+
+		// Run the chain — the agent will commit directly, but detergent should
+		// soft-reset that commit and create its own with Triggered-By.
+		cmd := exec.Command(binaryPath, "run", "--once", "--path", commitConfigPath)
+		output, err := cmd.CombinedOutput()
+		Expect(err).NotTo(HaveOccurred(), "run: %s", string(output))
+
+		// The output branch should exist and have a commit
+		branches := runGitOutput(repoDir, "branch")
+		Expect(branches).To(ContainSubstring("detergent/security"))
+
+		// The tip commit should be detergent's proper commit, not the agent's
+		tipMsg := strings.TrimSpace(runGitOutput(repoDir, "log", "-1", "--format=%B", "detergent/security"))
+		Expect(tipMsg).To(ContainSubstring("Triggered-By:"), "commit should have Triggered-By trailer")
+		Expect(tipMsg).NotTo(ContainSubstring("agent did this"), "agent's direct commit message should not be the tip")
+
+		// The agent's file should still be present (changes preserved via soft-reset)
+		wtPath := filepath.Join(repoDir, ".detergent", "worktrees", "detergent/security")
+		_, err = os.Stat(filepath.Join(wtPath, "agent-file.txt"))
+		Expect(err).NotTo(HaveOccurred(), "agent's file changes should be preserved")
+
+		// Now simulate rebase back to main and re-run — should NOT re-trigger
+		runGit(repoDir, "checkout", "main")
+		runGit(repoDir, "rebase", "detergent/security")
+
+		secCount1 := strings.TrimSpace(runGitOutput(repoDir, "rev-list", "--count", "detergent/security"))
+
+		cmd2 := exec.Command(binaryPath, "run", "--once", "--path", commitConfigPath)
+		output2, err := cmd2.CombinedOutput()
+		Expect(err).NotTo(HaveOccurred(), "second run: %s", string(output2))
+
+		secCount2 := strings.TrimSpace(runGitOutput(repoDir, "rev-list", "--count", "detergent/security"))
+		Expect(secCount2).To(Equal(secCount1), "should not re-trigger after rebase of proper agent commit")
+	})
+
 	It("processes only user commits after rebase + new user commit", func() {
 		// Run the chain once
 		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
