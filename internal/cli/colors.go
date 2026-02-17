@@ -47,10 +47,3 @@ func formatStatus(state, lastResult, name, message string) string {
 	sym, clr := stateDisplay(state, lastResult)
 	return fmt.Sprintf("  %s%s  %-20s  %s%s", clr, sym, name, message, ansiReset)
 }
-
-// formatStatusNoMessage formats a concern status line with only symbol and color.
-// Used when there's no additional message to display.
-func formatStatusNoMessage(state, lastResult, name string) string {
-	sym, clr := stateDisplay(state, lastResult)
-	return fmt.Sprintf("  %s%s  %-20s%s", clr, sym, name, ansiReset)
-}
