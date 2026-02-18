@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/creack/pty"
+	ignore "github.com/sabhiram/go-gitignore"
+
 	"github.com/re-cinq/detergent/internal/config"
 	"github.com/re-cinq/detergent/internal/fileutil"
 	gitops "github.com/re-cinq/detergent/internal/git"
@@ -224,7 +226,8 @@ func processConcern(cfg *config.Config, repo *gitops.Repo, repoDir string, conce
 
 	// Check if all new commits have skip markers (or agent commits on external branches)
 	skipAgentCommits := WatchesExternalBranch(cfg, concern)
-	if allCommitsSkipped(repo, lastSeen, head, skipAgentCommits) {
+	gi := loadIgnorePatterns(repoDir)
+	if allCommitsSkipped(repo, lastSeen, head, skipAgentCommits, gi) {
 		// Advance last-seen so we don't re-check these commits
 		if err := SetLastSeen(repoDir, concern.Name, head); err != nil {
 			return fmt.Errorf("updating last-seen after skip: %w", err)
@@ -648,13 +651,54 @@ func rebaseWorktree(worktreeDir, targetBranch string) error {
 	return repo.Rebase(targetBranch)
 }
 
+// loadIgnorePatterns reads a .detergentignore file from the repo root.
+// Returns nil if the file does not exist.
+func loadIgnorePatterns(repoDir string) *ignore.GitIgnore {
+	path := filepath.Join(repoDir, ".detergentignore")
+	gi, err := ignore.CompileIgnoreFile(path)
+	if err != nil {
+		return nil
+	}
+	return gi
+}
+
+// filesMatchIgnorePatterns returns true if all files match the ignore patterns.
+// Returns false if gi is nil, files is empty, or .detergentignore itself is in the list.
+func filesMatchIgnorePatterns(files []string, gi *ignore.GitIgnore) bool {
+	if gi == nil || len(files) == 0 {
+		return false
+	}
+	for _, f := range files {
+		if f == ".detergentignore" {
+			return false
+		}
+		if !gi.MatchesPath(f) {
+			return false
+		}
+	}
+	return true
+}
+
+// allFilesIgnored returns true if every file changed in the given commit
+// matches the ignore patterns.
+func allFilesIgnored(repo *gitops.Repo, hash string, gi *ignore.GitIgnore) bool {
+	if gi == nil {
+		return false
+	}
+	files, err := repo.FilesChangedInCommit(hash)
+	if err != nil || len(files) == 0 {
+		return false
+	}
+	return filesMatchIgnorePatterns(files, gi)
+}
+
 // allCommitsSkipped returns true if every commit between lastSeen and head
 // contains a skip marker ([skip ci], [ci skip], [skip detergent], [detergent skip]).
 // When skipAgentCommits is true, commits with a Triggered-By trailer are also
 // treated as skippable. This is used for concerns watching external branches
 // (like main) where agent commits arrived via rebase and should not re-trigger.
 // Returns false if there are no commits or if any commit lacks a skip marker.
-func allCommitsSkipped(repo *gitops.Repo, lastSeen, head string, skipAgentCommits bool) bool {
+func allCommitsSkipped(repo *gitops.Repo, lastSeen, head string, skipAgentCommits bool, gi *ignore.GitIgnore) bool {
 	commits, err := repo.CommitsBetween(lastSeen, head)
 	if err != nil || len(commits) == 0 {
 		return false
@@ -665,6 +709,9 @@ func allCommitsSkipped(repo *gitops.Repo, lastSeen, head string, skipAgentCommit
 			return nil
 		}
 		if skipAgentCommits && isAgentCommit(msg) {
+			return nil
+		}
+		if allFilesIgnored(repo, hash, gi) {
 			return nil
 		}
 		allSkipped = false

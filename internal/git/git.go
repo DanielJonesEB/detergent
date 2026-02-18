@@ -105,6 +105,19 @@ func WorktreePath(repoDir, branchPrefix, concernName string) string {
 	return fileutil.DetergentSubdir(repoDir, filepath.Join("worktrees", branchPrefix+concernName))
 }
 
+// FilesChangedInCommit returns the list of file paths changed in a single commit.
+// Uses diff-tree which works correctly for root commits (no parent).
+func (r *Repo) FilesChangedInCommit(hash string) ([]string, error) {
+	out, err := r.run("diff-tree", "--no-commit-id", "-r", "--name-only", hash)
+	if err != nil {
+		return nil, err
+	}
+	if out == "" {
+		return nil, nil
+	}
+	return strings.Split(out, "\n"), nil
+}
+
 // HasChanges checks if there are any uncommitted changes in the worktree.
 func (r *Repo) HasChanges() (bool, error) {
 	out, err := r.run("status", "--porcelain")
