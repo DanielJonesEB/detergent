@@ -27,8 +27,14 @@ import (
 )
 
 const (
-	idlePrompt      = "❯ "
-	startupTimeout  = 60 * time.Second
+	// idlePrompt is what Claude Code shows when it's waiting for input.
+	// In raw PTY bytes, ❯ and the space may be separated by escape sequences,
+	// so we search in STRIPPED text.
+	idlePrompt = "❯ "
+	// startupReady is a reliable signal that Claude is loaded and waiting.
+	// It appears in the status bar once startup is complete.
+	startupReady   = "bypass permissions on"
+	startupTimeout = 90 * time.Second
 	responseTimeout = 3 * time.Minute
 	// Probe: something that produces a moderately long response so we can tell
 	// whether it arrives in one blob or progressively.
@@ -59,6 +65,9 @@ func main() {
 	// Start claude WITHOUT -p (interactive/TUI mode).
 	cmd := exec.Command("claude", "--dangerously-skip-permissions")
 	cmd.Dir = tmpDir
+	// Claude Code refuses to launch inside another Claude Code session unless
+	// CLAUDECODE is unset. Scrub it from the child environment.
+	cmd.Env = filteredEnv("CLAUDECODE")
 	fmt.Printf("Dir:     %s\n", tmpDir)
 	fmt.Printf("Command: %s\n\n", strings.Join(cmd.Args, " "))
 
@@ -73,11 +82,14 @@ func main() {
 	fmt.Printf("[+%5dms] process started pid=%d\n\n", msSince(t0), cmd.Process.Pid)
 
 	// Shared output accumulator. The reader goroutine appends here and signals
-	// promptCh whenever the idle prompt appears in a newly arrived chunk.
+	// readyCh whenever Claude appears ready for input, and promptCh whenever
+	// the idle prompt (❯ ) appears after a response.
 	var mu sync.Mutex
-	var accum strings.Builder
+	var accum strings.Builder        // raw bytes
+	var strippedAccum strings.Builder // ANSI-stripped text
 	var chunks []chunk
-	promptCh := make(chan struct{}, 64) // buffered so sender never blocks
+	readyCh  := make(chan struct{}, 64) // startup complete
+	promptCh := make(chan struct{}, 64) // idle prompt after response
 
 	// reader goroutine
 	readerDone := make(chan struct{})
@@ -89,11 +101,23 @@ func main() {
 			if n > 0 {
 				c := chunk{at: time.Since(t0), data: make([]byte, n)}
 				copy(c.data, buf[:n])
+				stripped := stripANSI(string(c.data))
 
 				mu.Lock()
 				chunks = append(chunks, c)
 				accum.Write(c.data)
-				if strings.Contains(string(c.data), idlePrompt) {
+				strippedAccum.WriteString(stripped)
+
+				// Startup: look for "bypass permissions on" in raw or stripped.
+				if strings.Contains(stripped, startupReady) ||
+					strings.Contains(string(c.data), startupReady) {
+					select {
+					case readyCh <- struct{}{}:
+					default:
+					}
+				}
+				// Idle prompt: search stripped (❯ may be split from space by escapes).
+				if strings.Contains(stripped, idlePrompt) {
 					select {
 					case promptCh <- struct{}{}:
 					default:
@@ -111,11 +135,11 @@ func main() {
 		}
 	}()
 
-	// Phase 1: wait for startup (idle prompt).
-	fmt.Println("--- Phase 1: waiting for startup (❯ ) ---")
+	// Phase 1: wait for startup ("bypass permissions on" in status bar).
+	fmt.Printf("--- Phase 1: waiting for startup (%q) ---\n", startupReady)
 	t1start := time.Now()
-	if !waitForPrompt(promptCh, readerDone, startupTimeout) {
-		fmt.Printf("FAIL: no idle prompt within %v\n", startupTimeout)
+	if !waitForPrompt(readyCh, readerDone, startupTimeout) {
+		fmt.Printf("FAIL: startup signal not seen within %v\n", startupTimeout)
 		dumpRaw(&mu, &accum)
 		doCleanup(ptmx, cmd)
 		return
@@ -135,16 +159,14 @@ func main() {
 		fmt.Printf("WARN: write to ptmx: %v\n", err)
 	}
 
-	// Phase 3: wait for response (next idle prompt).
+	// Phase 3: wait for response (❯  in stripped text signals Claude is idle again).
 	fmt.Println("--- Phase 3: reading response ---")
 	if !waitForPrompt(promptCh, readerDone, responseTimeout) {
-		fmt.Printf("FAIL: no idle prompt within %v\n", responseTimeout)
-		dumpRaw(&mu, &accum)
-		doCleanup(ptmx, cmd)
-		return
+		fmt.Printf("NOTE: ❯  not detected within %v (may still have streamed)\n", responseTimeout)
+		fmt.Println("      Check chunk sizes below for streaming evidence.")
 	}
 	responseMs := time.Since(tSend).Milliseconds()
-	fmt.Printf("\n✓ Response complete in %dms\n\n", responseMs)
+	fmt.Printf("\n✓ Response phase ended at %dms\n\n", responseMs)
 
 	// Phase 4: SIGWINCH note.
 	// Gas Town sends this to wake a detached PTY's event loop after connecting.
@@ -182,6 +204,16 @@ func main() {
 	default:
 		fmt.Printf("~ AMBIGUOUS: %d chunks — manual review needed\n", len(responseChunks))
 	}
+
+	fmt.Println()
+	fmt.Println("--- Stripped output sample (first 1000 chars) ---")
+	mu.Lock()
+	stripped := strippedAccum.String()
+	mu.Unlock()
+	if len(stripped) > 1000 {
+		stripped = stripped[:1000]
+	}
+	fmt.Println(stripped)
 
 	fmt.Println()
 	fmt.Println("--- Raw output sample (first 800 bytes) ---")
@@ -324,6 +356,25 @@ func initGitRepo(dir string) error {
 		}
 	}
 	return nil
+}
+
+// filteredEnv returns os.Environ() with the named variables removed.
+func filteredEnv(exclude ...string) []string {
+	excl := make(map[string]bool, len(exclude))
+	for _, k := range exclude {
+		excl[k] = true
+	}
+	var out []string
+	for _, e := range os.Environ() {
+		key := e
+		if i := strings.IndexByte(e, '='); i >= 0 {
+			key = e[:i]
+		}
+		if !excl[key] {
+			out = append(out, e)
+		}
+	}
+	return out
 }
 
 func doCleanup(ptmx *os.File, cmd *exec.Cmd) {
