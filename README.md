@@ -48,7 +48,7 @@ concerns:
 
 Concerns are processed as an ordered chain: each concern watches the one before it, and the first concern watches the branch specified in `settings.watches` (defaults to `main`). Individual concerns can override the global `command` and `args` to use a different agent or model (as shown with `docs` above).
 
-**Note:** Assembly Line automatically prepends a default preamble to every concern prompt so agents proceed autonomously without pausing for user input. You can override it globally with `preamble`, or per-concern with a `preamble` field on individual concerns:
+**Note:** Assembly Line automatically prepends a [default preamble](internal/config/config.go#L68) to every concern prompt. The preamble tells the agent to proceed without asking questions and not to run `git commit` (Assembly Line commits changes automatically when the agent exits). You can override it globally with `preamble`, or per-concern with a `preamble` field on individual concerns:
 
 ```yaml
 # Global override (applies to all concerns)
