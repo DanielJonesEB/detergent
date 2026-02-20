@@ -3,7 +3,6 @@ agent:
   args: ["no-op"]
 
 settings:
-  poll_interval: 10s
   watches: main
 
 concerns:

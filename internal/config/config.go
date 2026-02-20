@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"os"
-	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -36,29 +35,8 @@ type AgentConfig struct {
 }
 
 type Settings struct {
-	PollInterval Duration `yaml:"poll_interval"`
-	BranchPrefix string   `yaml:"branch_prefix"`
-	Watches      string   `yaml:"watches"`
-}
-
-// Duration wraps time.Duration for YAML unmarshaling from strings like "10s".
-type Duration time.Duration
-
-func (d *Duration) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	var s string
-	if err := unmarshal(&s); err != nil {
-		return err
-	}
-	parsed, err := time.ParseDuration(s)
-	if err != nil {
-		return err
-	}
-	*d = Duration(parsed)
-	return nil
-}
-
-func (d Duration) Duration() time.Duration {
-	return time.Duration(d)
+	BranchPrefix string `yaml:"branch_prefix"`
+	Watches      string `yaml:"watches"`
 }
 
 type Concern struct {
@@ -103,9 +81,6 @@ func parse(data []byte) (*Config, error) {
 
 	if cfg.Settings.BranchPrefix == "" {
 		cfg.Settings.BranchPrefix = "line/"
-	}
-	if cfg.Settings.PollInterval == 0 {
-		cfg.Settings.PollInterval = Duration(30 * time.Second)
 	}
 	if cfg.Settings.Watches == "" {
 		cfg.Settings.Watches = "main"

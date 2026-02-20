@@ -31,7 +31,6 @@ agent:
   args: ["--dangerously-skip-permissions", "-p"]
 
 settings:
-  poll_interval: 5s
   watches: main
 
 concerns:

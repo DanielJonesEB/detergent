@@ -62,7 +62,6 @@ agent:
   args: ["-c", "sleep 2 && echo 'Line added by agent' >> README.md"]
 
 settings:
-  poll_interval: 1s
 
 concerns:
   - name: readme

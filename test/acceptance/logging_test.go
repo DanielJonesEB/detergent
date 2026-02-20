@@ -217,7 +217,6 @@ agent:
   args: ["-c", "echo 'AGENT_SECRET_OUTPUT' && touch reviewed.txt"]
 
 settings:
-  poll_interval: 1s
   branch_prefix: "line/"
 
 concerns:

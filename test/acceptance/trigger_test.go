@@ -27,7 +27,6 @@ agent:
   args: ["-c", "echo ok"]
 
 settings:
-  poll_interval: 1s
 
 concerns:
   - name: security

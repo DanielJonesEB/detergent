@@ -26,7 +26,6 @@ agent:
   args: ["-c", "echo 'reviewed' > review.txt"]
 
 settings:
-  poll_interval: 1s
 
 concerns:
   - name: security

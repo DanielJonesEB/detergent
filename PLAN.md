@@ -72,8 +72,6 @@ concerns:
     prompt: |
       Ensure public APIs have clear documentation.
 
-settings:
-  poll_interval: 30
 ```
 
 ---
