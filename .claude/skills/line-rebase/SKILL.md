@@ -196,6 +196,34 @@ Tell the user: "Rebase aborted after too many conflict rounds. Your branch is re
 
 ---
 
+## Phase 8: Advance Daemon State (post-rebase)
+
+After a successful rebase (not aborted), update the daemon's last-seen marker for the
+**first concern** (the one that watches the main branch) so it doesn't re-process the
+agent commits that just landed on main.
+
+16. **Write new HEAD to the first concern's state file**
+    ```bash
+    git rev-parse HEAD
+    ```
+    Write this hash to `.line/state/<first-concern-name>`:
+    ```bash
+    mkdir -p .line/state
+    git rev-parse HEAD > .line/state/<first-concern-name>
+    ```
+
+    The first concern is the one whose `watches` field matches the main branch (the branch
+    you're currently on). This is the same concern identified in Phase 1 as the root of the chain.
+
+    This prevents the daemon from seeing the rebased agent commits as "new work" on the next
+    poll cycle. The engine also detects agent commits independently, but advancing last-seen
+    is a belt-and-suspenders safeguard.
+
+    **Skip this step** if the rebase was aborted — the branch is back to its pre-rebase state
+    and no state update is needed.
+
+---
+
 ## Guardrails
 
 - **NEVER** force-push. This skill only performs local operations.
