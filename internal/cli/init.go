@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/re-cinq/assembly-line/internal/assets"
 	"github.com/re-cinq/assembly-line/internal/config"
@@ -139,32 +140,68 @@ func initStatusline(repoDir string) error {
 	return nil
 }
 
-// initPreCommitHook installs a .git/hooks/pre-commit script that runs `line gate`.
+const (
+	gateBeginMarker = "# BEGIN line gate"
+	gateEndMarker   = "# END line gate"
+	gateBlock       = `# BEGIN line gate
+if command -v line >/dev/null 2>&1; then
+    line gate || exit 1
+fi
+# END line gate`
+)
+
+// initPreCommitHook installs or injects a `line gate` call into .git/hooks/pre-commit.
+// If no hook exists, a fresh one is created. If one exists, the gate block is injected
+// using sentinel markers. Re-running is idempotent: the sentinel is detected and skipped.
 func initPreCommitHook(repoDir string) error {
 	hookDir := filepath.Join(repoDir, ".git", "hooks")
 	hookPath := filepath.Join(hookDir, "pre-commit")
-
-	// Don't clobber an existing hook
-	if _, err := os.Stat(hookPath); err == nil {
-		fmt.Printf("  skip   .git/hooks/pre-commit (already exists)\n")
-		return nil
-	}
-
-	lineBin, err := os.Executable()
-	if err != nil {
-		lineBin = "line"
-	}
-
-	content := fmt.Sprintf("#!/bin/sh\n%s gate\n", lineBin)
 
 	if err := os.MkdirAll(hookDir, 0o755); err != nil {
 		return fmt.Errorf("creating hooks directory: %w", err)
 	}
 
+	// Check for existing hook
+	existing, err := os.ReadFile(hookPath)
+	if err == nil {
+		return injectGateBlock(hookPath, string(existing))
+	}
+
+	// No existing hook — write a fresh one
+	content := "#!/bin/sh\n" + gateBlock + "\n"
 	if err := os.WriteFile(hookPath, []byte(content), 0o755); err != nil {
 		return fmt.Errorf("writing pre-commit hook: %w", err)
 	}
 
 	fmt.Println("  hook   .git/hooks/pre-commit")
+	return nil
+}
+
+// injectGateBlock injects the gate block into an existing hook script.
+// If the sentinel markers are already present, it's a no-op.
+func injectGateBlock(hookPath, content string) error {
+	if strings.Contains(content, gateBeginMarker) {
+		fmt.Println("  skip   .git/hooks/pre-commit (line gate already present)")
+		return nil
+	}
+
+	// Insert before the last "exit 0" if present, otherwise append
+	var updated string
+	if idx := strings.LastIndex(content, "\nexit 0"); idx != -1 {
+		// Inject before the final "exit 0", preserving surrounding newlines
+		updated = content[:idx] + "\n" + gateBlock + "\n" + content[idx+1:]
+	} else {
+		// Append to end, ensuring a newline separator
+		if !strings.HasSuffix(content, "\n") {
+			content += "\n"
+		}
+		updated = content + "\n" + gateBlock + "\n"
+	}
+
+	if err := os.WriteFile(hookPath, []byte(updated), 0o755); err != nil {
+		return fmt.Errorf("writing pre-commit hook: %w", err)
+	}
+
+	fmt.Println("  hook   .git/hooks/pre-commit (injected line gate)")
 	return nil
 }

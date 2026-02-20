@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -59,21 +60,79 @@ var _ = Describe("line init (pre-commit hook)", func() {
 			Expect(os.Chmod(filepath.Join(hookDir, "pre-commit"), 0o755)).To(Succeed())
 		})
 
-		It("does not overwrite the existing hook", func() {
+		It("injects the gate block while preserving original content", func() {
 			cmd := exec.Command(binaryPath, "init", repoDir, "--path", filepath.Join(repoDir, "line.yaml"))
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "init failed: %s", string(output))
 
 			hookContent, err := os.ReadFile(filepath.Join(repoDir, ".git", "hooks", "pre-commit"))
 			Expect(err).NotTo(HaveOccurred())
-			Expect(string(hookContent)).To(ContainSubstring("existing"))
+			Expect(string(hookContent)).To(ContainSubstring("echo existing"))
+			Expect(string(hookContent)).To(ContainSubstring("# BEGIN line gate"))
+			Expect(string(hookContent)).To(ContainSubstring("line gate || exit 1"))
+		})
+
+		It("prints an injection message", func() {
+			cmd := exec.Command(binaryPath, "init", repoDir, "--path", filepath.Join(repoDir, "line.yaml"))
+			output, err := cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), "init failed: %s", string(output))
+			Expect(string(output)).To(ContainSubstring("injected line gate"))
+		})
+	})
+
+	Context("when the gate block is already injected", func() {
+		BeforeEach(func() {
+			writeFile(filepath.Join(repoDir, "line.yaml"), `gates:
+  - name: lint
+    run: "echo ok"
+`)
+			hookDir := filepath.Join(repoDir, ".git", "hooks")
+			Expect(os.MkdirAll(hookDir, 0o755)).To(Succeed())
+			writeFile(filepath.Join(hookDir, "pre-commit"), "#!/bin/sh\necho existing\n\n# BEGIN line gate\nif command -v line >/dev/null 2>&1; then\n    line gate || exit 1\nfi\n# END line gate\n")
+			Expect(os.Chmod(filepath.Join(hookDir, "pre-commit"), 0o755)).To(Succeed())
+		})
+
+		It("is idempotent — does not duplicate the block", func() {
+			cmd := exec.Command(binaryPath, "init", repoDir, "--path", filepath.Join(repoDir, "line.yaml"))
+			output, err := cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), "init failed: %s", string(output))
+
+			hookContent, err := os.ReadFile(filepath.Join(repoDir, ".git", "hooks", "pre-commit"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(strings.Count(string(hookContent), "# BEGIN line gate")).To(Equal(1))
 		})
 
 		It("prints a skip message", func() {
 			cmd := exec.Command(binaryPath, "init", repoDir, "--path", filepath.Join(repoDir, "line.yaml"))
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "init failed: %s", string(output))
-			Expect(string(output)).To(ContainSubstring("skip"))
+			Expect(string(output)).To(ContainSubstring("already present"))
+		})
+	})
+
+	Context("when the existing hook ends with exit 0", func() {
+		BeforeEach(func() {
+			writeFile(filepath.Join(repoDir, "line.yaml"), `gates:
+  - name: lint
+    run: "echo ok"
+`)
+			hookDir := filepath.Join(repoDir, ".git", "hooks")
+			Expect(os.MkdirAll(hookDir, 0o755)).To(Succeed())
+			writeFile(filepath.Join(hookDir, "pre-commit"), "#!/bin/sh\necho existing\nexit 0\n")
+			Expect(os.Chmod(filepath.Join(hookDir, "pre-commit"), 0o755)).To(Succeed())
+		})
+
+		It("injects the gate block before the final exit 0", func() {
+			cmd := exec.Command(binaryPath, "init", repoDir, "--path", filepath.Join(repoDir, "line.yaml"))
+			output, err := cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), "init failed: %s", string(output))
+
+			hookContent, err := os.ReadFile(filepath.Join(repoDir, ".git", "hooks", "pre-commit"))
+			Expect(err).NotTo(HaveOccurred())
+			content := string(hookContent)
+			gateIdx := strings.Index(content, "# BEGIN line gate")
+			exitIdx := strings.LastIndex(content, "exit 0\n")
+			Expect(gateIdx).To(BeNumerically("<", exitIdx), "gate block should appear before final exit 0")
 		})
 	})
 
