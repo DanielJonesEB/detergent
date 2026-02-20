@@ -57,10 +57,17 @@ This command:
 		}
 		fmt.Println("  config .claude/settings.local.json (statusline)")
 
-		// Install pre-commit hook if gates are configured
-		if cfg, err := config.Load(configPath); err == nil && len(cfg.Gates) > 0 {
-			if err := initPreCommitHook(absDir); err != nil {
-				return fmt.Errorf("installing pre-commit hook: %w", err)
+		// Install hooks based on config
+		if cfg, err := config.Load(configPath); err == nil {
+			if len(cfg.Gates) > 0 {
+				if err := initPreCommitHook(absDir); err != nil {
+					return fmt.Errorf("installing pre-commit hook: %w", err)
+				}
+			}
+			if len(cfg.Concerns) > 0 {
+				if err := initPostCommitHook(absDir); err != nil {
+					return fmt.Errorf("installing post-commit hook: %w", err)
+				}
 			}
 		}
 
@@ -142,7 +149,6 @@ func initStatusline(repoDir string) error {
 
 const (
 	gateBeginMarker = "# BEGIN line gate"
-	gateEndMarker   = "# END line gate"
 	gateBlock       = `# BEGIN line gate
 if command -v line >/dev/null 2>&1; then
     line gate || exit 1
@@ -203,5 +209,63 @@ func injectGateBlock(hookPath, content string) error {
 	}
 
 	fmt.Println("  hook   .git/hooks/pre-commit (injected line gate)")
+	return nil
+}
+
+const (
+	runnerBeginMarker = "# BEGIN line runner"
+	runnerBlock       = `# BEGIN line runner
+if command -v line >/dev/null 2>&1; then
+    line trigger >/dev/null 2>&1
+fi
+# END line runner`
+)
+
+// initPostCommitHook installs or injects a `line trigger` call into .git/hooks/post-commit.
+// If no hook exists, a fresh one is created. If one exists, the runner block is injected
+// using sentinel markers. Re-running is idempotent: the sentinel is detected and skipped.
+func initPostCommitHook(repoDir string) error {
+	hookDir := filepath.Join(repoDir, ".git", "hooks")
+	hookPath := filepath.Join(hookDir, "post-commit")
+
+	if err := os.MkdirAll(hookDir, 0o755); err != nil {
+		return fmt.Errorf("creating hooks directory: %w", err)
+	}
+
+	// Check for existing hook
+	existing, err := os.ReadFile(hookPath)
+	if err == nil {
+		return injectRunnerBlock(hookPath, string(existing))
+	}
+
+	// No existing hook — write a fresh one
+	content := "#!/bin/sh\n" + runnerBlock + "\n"
+	if err := os.WriteFile(hookPath, []byte(content), 0o755); err != nil {
+		return fmt.Errorf("writing post-commit hook: %w", err)
+	}
+
+	fmt.Println("  hook   .git/hooks/post-commit")
+	return nil
+}
+
+// injectRunnerBlock injects the runner block into an existing hook script.
+// If the sentinel markers are already present, it's a no-op.
+func injectRunnerBlock(hookPath, content string) error {
+	if strings.Contains(content, runnerBeginMarker) {
+		fmt.Println("  skip   .git/hooks/post-commit (line runner already present)")
+		return nil
+	}
+
+	// Append to end, ensuring a newline separator
+	if !strings.HasSuffix(content, "\n") {
+		content += "\n"
+	}
+	updated := content + "\n" + runnerBlock + "\n"
+
+	if err := os.WriteFile(hookPath, []byte(updated), 0o755); err != nil {
+		return fmt.Errorf("writing post-commit hook: %w", err)
+	}
+
+	fmt.Println("  hook   .git/hooks/post-commit (injected line runner)")
 	return nil
 }

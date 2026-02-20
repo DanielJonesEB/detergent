@@ -1,34 +1,34 @@
 ---
 name: line-start
-description: Start the line daemon as a background task. It watches for commits and processes them through the concern chain.
+description: Start the line runner to process commits through the concern chain. Normally auto-triggered by post-commit hooks.
 metadata:
   author: line
-  version: "1.0"
+  version: "2.0"
 ---
 
-Start the line daemon as a Claude Code background task.
+Start the line runner. Normally this happens automatically via the post-commit hook installed by `line init`, but you can run it manually if needed.
 
 ---
 
-## Steps
+## How it works
+
+After `line init`, a post-commit hook calls `line trigger` on every commit. This:
+1. Writes a trigger file (`.line/trigger`) with the current HEAD
+2. Spawns `line run` if no runner is already active
+
+The runner processes all pending commits through the concern chain, then waits a grace period for more work. If no new commits arrive, it exits on its own. No manual start/stop needed.
+
+## Manual start
+
+If the runner isn't starting automatically (e.g., hook not installed), run it manually:
 
 1. **Find the config file**
    Look for `line.yaml` or `line.yml` starting from the repo root:
    ```bash
    git rev-parse --show-toplevel
    ```
-   Check that directory for the config file. If not found, STOP: "No line.yaml found."
 
-2. **Check if already running**
-   ```bash
-   pgrep -f "line run" || true
-   ```
-   If a process is found, tell the user: "Assembly Line daemon is already running (PID <pid>)." and ask if they want to restart it. If yes, kill the existing process first:
-   ```bash
-   pkill -f "line run"
-   ```
-
-3. **Start the daemon**
+2. **Start the runner**
    Run using the Bash tool with `run_in_background: true`:
    ```bash
    line run
@@ -37,19 +37,26 @@ Start the line daemon as a Claude Code background task.
    ```bash
    line run --path /path/to/config.yaml
    ```
-   This starts line in continuous polling mode. It will process commits through the concern chain as they arrive.
+   The runner will process pending commits and exit when there's no more work.
 
-4. **Confirm**
+3. **Confirm**
    Tell the user:
    ```
-   Assembly Line daemon started. The statusline will update as concerns process.
+   Assembly Line runner started. It will process pending commits and exit when done.
    ```
+
+## Debugging
+
+For one-shot processing (no grace period wait):
+```bash
+line run --once
+```
 
 ---
 
 ## Guardrails
 
-- **ALWAYS** use `run_in_background: true` for the Bash tool call. The daemon runs continuously.
-- **ALWAYS** check for an existing daemon before starting a new one.
-- Do not use `--once` mode — the point is continuous watching.
-- If the daemon exits immediately, read the output and report the error.
+- The runner self-retires after processing — no need to kill it.
+- If you need continuous background processing, use `run_in_background: true` for the Bash tool call.
+- If the runner exits immediately saying "already active", another instance is running.
+- Do not use `--once` mode for normal operation — it skips the grace period and may miss rapid commits.

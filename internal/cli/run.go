@@ -2,12 +2,8 @@ package cli
 
 import (
 	"context"
-	"fmt"
-	"time"
 
-	"github.com/re-cinq/assembly-line/internal/config"
 	"github.com/re-cinq/assembly-line/internal/engine"
-	"github.com/re-cinq/assembly-line/internal/fileutil"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +16,7 @@ func init() {
 
 var runCmd = &cobra.Command{
 	Use:   "run",
-	Short: "Run the line daemon",
+	Short: "Run the line runner",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, repoDir, err := loadConfigAndRepo(configPath)
@@ -32,66 +28,15 @@ var runCmd = &cobra.Command{
 			return engine.RunOnce(cfg, repoDir)
 		}
 
-		return runDaemon(cfg, repoDir)
-	},
-}
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-func runDaemon(cfg *config.Config, repoDir string) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	sigCh := setupSignalHandler()
-
-	// Create LogManager for daemon lifetime
-	logMgr := engine.NewLogManager()
-	defer logMgr.Close()
-
-	fmt.Printf("line daemon started (polling every %s)\n", cfg.Settings.PollInterval.Duration())
-	fmt.Printf("Agent logs: %s\n", engine.LogPath())
-
-	ticker := time.NewTicker(cfg.Settings.PollInterval.Duration())
-	defer ticker.Stop()
-
-	// Run immediately on startup
-	if err := engine.RunOnceWithLogs(cfg, repoDir, logMgr); err != nil {
-		fileutil.LogError("poll error: %s", err)
-	}
-
-	for {
-		select {
-		case <-ctx.Done():
-			fmt.Println("line daemon stopped")
-			return nil
-		case sig := <-sigCh:
-			fmt.Printf("\nreceived %s, shutting down...\n", sig)
+		sigCh := setupSignalHandler()
+		go func() {
+			<-sigCh
 			cancel()
-		case <-ticker.C:
-			cfg = reloadConfig(configPath, cfg, ticker)
-			if err := engine.RunOnceWithLogs(cfg, repoDir, logMgr); err != nil {
-				fileutil.LogError("poll error: %s", err)
-			}
-		}
-	}
-}
+		}()
 
-// reloadConfig attempts to reload and validate the config file.
-// If successful and the poll interval changed, the ticker is reset.
-// On any error, the previous config is returned unchanged.
-func reloadConfig(path string, prev *config.Config, ticker *time.Ticker) *config.Config {
-	newCfg, err := config.Load(path)
-	if err != nil {
-		fileutil.LogError("config reload: %s (keeping previous config)", err)
-		return prev
-	}
-	if errs := config.Validate(newCfg); len(errs) > 0 {
-		fileutil.LogError("config reload: invalid (%s) (keeping previous config)", errs[0])
-		return prev
-	}
-
-	if newCfg.Settings.PollInterval != prev.Settings.PollInterval {
-		ticker.Reset(newCfg.Settings.PollInterval.Duration())
-		fmt.Printf("config reloaded: poll interval changed to %s\n", newCfg.Settings.PollInterval.Duration())
-	}
-
-	return newCfg
+		return engine.RunnerLoop(ctx, configPath, cfg, repoDir)
+	},
 }

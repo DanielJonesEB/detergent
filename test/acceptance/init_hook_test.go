@@ -158,3 +158,118 @@ concerns:
 		})
 	})
 })
+
+var _ = Describe("line init (post-commit hook)", func() {
+	var tmpDir, repoDir string
+
+	BeforeEach(func() {
+		tmpDir, repoDir = setupTestRepo("init-postcommit-")
+	})
+
+	AfterEach(func() {
+		cleanupTestRepo(repoDir, tmpDir)
+	})
+
+	Context("when concerns are configured", func() {
+		BeforeEach(func() {
+			writeFile(filepath.Join(repoDir, "line.yaml"), `agent:
+  command: "echo"
+
+concerns:
+  - name: security
+    prompt: "check"
+`)
+		})
+
+		It("installs the post-commit hook", func() {
+			cmd := exec.Command(binaryPath, "init", repoDir, "--path", filepath.Join(repoDir, "line.yaml"))
+			output, err := cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), "init failed: %s", string(output))
+
+			hookPath := filepath.Join(repoDir, ".git", "hooks", "post-commit")
+			info, err := os.Stat(hookPath)
+			Expect(err).NotTo(HaveOccurred(), "hook should exist")
+			Expect(info.Mode().Perm() & 0o111).NotTo(BeZero(), "hook should be executable")
+
+			content, err := os.ReadFile(hookPath)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("# BEGIN line runner"))
+			Expect(string(content)).To(ContainSubstring("line trigger"))
+		})
+	})
+
+	Context("when post-commit hook is already present", func() {
+		BeforeEach(func() {
+			writeFile(filepath.Join(repoDir, "line.yaml"), `agent:
+  command: "echo"
+
+concerns:
+  - name: security
+    prompt: "check"
+`)
+		})
+
+		It("is idempotent — does not duplicate the block", func() {
+			initCmd := func() {
+				cmd := exec.Command(binaryPath, "init", repoDir, "--path", filepath.Join(repoDir, "line.yaml"))
+				output, err := cmd.CombinedOutput()
+				Expect(err).NotTo(HaveOccurred(), "init failed: %s", string(output))
+			}
+
+			// Run init twice
+			initCmd()
+			initCmd()
+
+			hookContent, err := os.ReadFile(filepath.Join(repoDir, ".git", "hooks", "post-commit"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(strings.Count(string(hookContent), "# BEGIN line runner")).To(Equal(1))
+		})
+	})
+
+	Context("when a post-commit hook already exists", func() {
+		BeforeEach(func() {
+			writeFile(filepath.Join(repoDir, "line.yaml"), `agent:
+  command: "echo"
+
+concerns:
+  - name: security
+    prompt: "check"
+`)
+			hookDir := filepath.Join(repoDir, ".git", "hooks")
+			Expect(os.MkdirAll(hookDir, 0o755)).To(Succeed())
+			writeFile(filepath.Join(hookDir, "post-commit"), "#!/bin/sh\necho existing-hook\n")
+			Expect(os.Chmod(filepath.Join(hookDir, "post-commit"), 0o755)).To(Succeed())
+		})
+
+		It("injects the runner block while preserving original content", func() {
+			cmd := exec.Command(binaryPath, "init", repoDir, "--path", filepath.Join(repoDir, "line.yaml"))
+			output, err := cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), "init failed: %s", string(output))
+
+			hookContent, err := os.ReadFile(filepath.Join(repoDir, ".git", "hooks", "post-commit"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(hookContent)).To(ContainSubstring("echo existing-hook"))
+			Expect(string(hookContent)).To(ContainSubstring("# BEGIN line runner"))
+			Expect(string(hookContent)).To(ContainSubstring("line trigger"))
+		})
+	})
+
+	Context("when no concerns are configured", func() {
+		BeforeEach(func() {
+			writeFile(filepath.Join(repoDir, "line.yaml"), `gates:
+  - name: lint
+    run: "echo ok"
+`)
+		})
+
+		It("does not install a post-commit hook", func() {
+			cmd := exec.Command(binaryPath, "init", repoDir, "--path", filepath.Join(repoDir, "line.yaml"))
+			output, err := cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), "init failed: %s", string(output))
+
+			hookPath := filepath.Join(repoDir, ".git", "hooks", "post-commit")
+			_, err = os.Stat(hookPath)
+			Expect(os.IsNotExist(err)).To(BeTrue(), "hook should not exist when no concerns")
+		})
+	})
+})

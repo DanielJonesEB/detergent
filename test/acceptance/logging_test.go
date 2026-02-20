@@ -246,8 +246,8 @@ concerns:
 
 			terminalOutput := outputBuf.String()
 
-			// Daemon messages should appear on terminal
-			Expect(terminalOutput).To(ContainSubstring("daemon started"))
+			// Runner messages should appear on terminal
+			Expect(terminalOutput).To(ContainSubstring("runner started"))
 			Expect(terminalOutput).To(ContainSubstring("Agent logs:"))
 
 			// Agent output should NOT appear on terminal

@@ -385,15 +385,26 @@ concerns:
 		}
 	}
 
-	It("all status sources agree through a full daemon lifecycle", func() {
-		// ── PHASE 1: Pre-daemon — all sources should show unknown ──
+	It("all status sources agree through a full runner lifecycle", func() {
+		// ── PHASE 1: Pre-runner — all sources should show unknown ──
 		snap := captureSnap()
-		Expect(checkConsistency(snap)).To(Succeed(), "pre-daemon consistency")
+		Expect(checkConsistency(snap)).To(Succeed(), "pre-runner consistency")
 		Expect(getState(snap)).To(Equal("unknown"))
 
-		// ── PHASE 2: Start daemon, poll through first processing cycle ──
+		// ── PHASE 2: Write trigger and start runner, poll through first processing cycle ──
+		lineDir := filepath.Join(repoDir, ".line")
+		Expect(os.MkdirAll(lineDir, 0o755)).To(Succeed())
+		head := strings.TrimSpace(runGitOutput(repoDir, "rev-parse", "HEAD"))
+		writeFile(filepath.Join(lineDir, "trigger"), head+"\n")
+
 		cmd := exec.Command(binaryPath, "run", "--path", configPath)
 		cmd.Dir = repoDir
+		cmd.Env = append(os.Environ(),
+			"GIT_AUTHOR_NAME=Test",
+			"GIT_AUTHOR_EMAIL=test@test.com",
+			"GIT_COMMITTER_NAME=Test",
+			"GIT_COMMITTER_EMAIL=test@test.com",
+		)
 		var outputBuf strings.Builder
 		cmd.Stdout = &outputBuf
 		cmd.Stderr = &outputBuf
@@ -401,9 +412,9 @@ concerns:
 		err := cmd.Start()
 		Expect(err).NotTo(HaveOccurred())
 
-		daemonStopped := false
+		runnerStopped := false
 		defer func() {
-			if !daemonStopped {
+			if !runnerStopped {
 				cmd.Process.Signal(syscall.SIGINT)
 				cmd.Wait()
 			}
@@ -437,13 +448,17 @@ concerns:
 			}
 		}
 
-		// ── PHASE 3: Make a new commit to trigger second processing cycle ──
+		// ── PHASE 3: Make a new commit and update trigger to keep runner alive ──
 		writeFile(filepath.Join(repoDir, "newfile.txt"), "new content\n")
 		runGit(repoDir, "add", "newfile.txt")
 		runGit(repoDir, "commit", "-m", "second commit")
 
+		// Write a new trigger so the runner detects new work during its grace period
+		newHead := strings.TrimSpace(runGitOutput(repoDir, "rev-parse", "HEAD"))
+		writeFile(filepath.Join(lineDir, "trigger"), newHead+"\n")
+
 		// ── PHASE 4: Poll through second processing cycle ──
-		// Wait for state to leave idle (daemon detects new commit), then wait for idle again
+		// Wait for state to leave idle (runner detects new commit), then wait for idle again
 		snapshots2 := pollCycle("idle", "idle", 30*time.Second)
 
 		validateCycleConsistency(snapshots2, "second cycle")
@@ -482,17 +497,23 @@ concerns:
 			HaveKey("pending"),
 			HaveKey("change_detected"),
 			HaveKey("agent_running"),
-		), "should have observed the daemon detecting and processing the new commit")
+		), "should have observed the runner detecting and processing the new commit")
 
-		// ── PHASE 5: Stop daemon and verify final state ──
-		cmd.Process.Signal(syscall.SIGINT)
-		err = cmd.Wait()
-		daemonStopped = true
-		Expect(err).NotTo(HaveOccurred(), "daemon output: %s", outputBuf.String())
+		// ── PHASE 5: Wait for runner to self-retire and verify final state ──
+		done := make(chan error, 1)
+		go func() { done <- cmd.Wait() }()
 
-		// Final consistency check after daemon shutdown
+		select {
+		case err := <-done:
+			runnerStopped = true
+			Expect(err).NotTo(HaveOccurred(), "runner output: %s", outputBuf.String())
+		case <-time.After(30 * time.Second):
+			Fail("runner did not self-retire; output: " + outputBuf.String())
+		}
+
+		// Final consistency check after runner exits
 		snap = captureSnap()
-		Expect(checkConsistency(snap)).To(Succeed(), "post-daemon consistency")
+		Expect(checkConsistency(snap)).To(Succeed(), "post-runner consistency")
 		Expect(getState(snap)).To(Equal("idle"))
 	})
 })
