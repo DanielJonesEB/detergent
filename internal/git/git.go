@@ -5,9 +5,34 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/re-cinq/assembly-line/internal/fileutil"
 )
+
+// Retry constants for transient git errors.
+const (
+	retryInitialDelay = 50 * time.Millisecond
+	retryMaxAttempts  = 5
+	retryMultiplier   = 2
+)
+
+// transientPatterns are error substrings that indicate a retryable git failure.
+var transientPatterns = []string{
+	"index file open failed",
+	"index.lock",
+	"cannot lock ref",
+}
+
+// isTransient returns true if the error message matches a known transient git failure.
+func isTransient(errMsg string) bool {
+	for _, p := range transientPatterns {
+		if strings.Contains(errMsg, p) {
+			return true
+		}
+	}
+	return false
+}
 
 // Repo wraps git operations for a repository.
 type Repo struct {
@@ -19,15 +44,30 @@ func NewRepo(dir string) *Repo {
 	return &Repo{Dir: dir}
 }
 
+// sleepFunc is the function used for sleeping between retries.
+// Replaced in tests to avoid real delays.
+var sleepFunc = time.Sleep
+
 // run executes a git command in the repo directory.
+// Transient errors (index locks, ref locks) are retried with exponential backoff.
 func (r *Repo) run(args ...string) (string, error) {
-	cmd := exec.Command("git", args...)
-	cmd.Dir = r.Dir
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("git %s: %s: %w", strings.Join(args, " "), strings.TrimSpace(string(out)), err)
+	delay := retryInitialDelay
+	for attempt := 0; attempt < retryMaxAttempts; attempt++ {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = r.Dir
+		out, err := cmd.CombinedOutput()
+		if err == nil {
+			return strings.TrimSpace(string(out)), nil
+		}
+		errMsg := strings.TrimSpace(string(out))
+		if !isTransient(errMsg) || attempt == retryMaxAttempts-1 {
+			return "", fmt.Errorf("git %s: %s: %w", strings.Join(args, " "), errMsg, err)
+		}
+		sleepFunc(delay)
+		delay *= retryMultiplier
 	}
-	return strings.TrimSpace(string(out)), nil
+	// unreachable — loop always returns
+	return "", nil
 }
 
 // HeadCommit returns the commit hash at HEAD for a given branch.
