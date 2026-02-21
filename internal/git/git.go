@@ -184,9 +184,7 @@ func (r *Repo) ResetSoft(ref string) error {
 
 // abortRebase aborts any in-progress rebase, ignoring errors.
 func (r *Repo) abortRebase() {
-	cmd := exec.Command("git", "rebase", "--abort")
-	cmd.Dir = r.Dir
-	_, _ = cmd.CombinedOutput() // ignore error — fails if no rebase in progress
+	_, _ = r.run("rebase", "--abort") // ignore error — fails if no rebase in progress
 }
 
 // Rebase rebases the current branch onto targetBranch.
