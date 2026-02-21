@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -18,7 +17,7 @@ var GracePeriod = 5 * time.Second
 
 // TriggerPath returns the path to the trigger file for a repo.
 func TriggerPath(repoDir string) string {
-	return filepath.Join(repoDir, ".line", "trigger")
+	return fileutil.LineSubdir(repoDir, "trigger")
 }
 
 // WriteTrigger writes a commit hash to the trigger file.
@@ -49,7 +48,7 @@ func ReadTrigger(repoDir string) (hash string, modTime time.Time, err error) {
 
 // PIDPath returns the path to the runner PID file for a repo.
 func PIDPath(repoDir string) string {
-	return filepath.Join(repoDir, ".line", "runner.pid")
+	return fileutil.LineSubdir(repoDir, "runner.pid")
 }
 
 // WritePID writes the current process ID to the PID file.
@@ -62,7 +61,7 @@ func WritePID(repoDir string) error {
 
 // ensureLineDotDir ensures the .line directory exists in the repository.
 func ensureLineDotDir(repoDir string) error {
-	dir := filepath.Join(repoDir, ".line")
+	dir := fileutil.LineDir(repoDir)
 	if err := fileutil.EnsureDir(dir); err != nil {
 		return fmt.Errorf("creating .line directory: %w", err)
 	}

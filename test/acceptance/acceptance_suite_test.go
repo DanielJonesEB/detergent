@@ -54,8 +54,9 @@ func cleanupTestRepo(repoDir, tmpDir string) {
 	os.RemoveAll(tmpDir)
 }
 
-// runGit executes a git command and fails the test if it errors.
-func runGit(dir string, args ...string) {
+// execGit is a unified helper for executing git commands with proper environment setup.
+// Returns output and fails the test if the command errors.
+func execGit(dir string, args ...string) string {
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(),
@@ -65,16 +66,18 @@ func runGit(dir string, args ...string) {
 		"GIT_COMMITTER_EMAIL=test@test.com",
 	)
 	out, err := cmd.CombinedOutput()
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "git %v: %s", args, string(out))
+	ExpectWithOffset(2, err).NotTo(HaveOccurred(), "git %v: %s", args, string(out))
+	return string(out)
+}
+
+// runGit executes a git command and fails the test if it errors.
+func runGit(dir string, args ...string) {
+	execGit(dir, args...)
 }
 
 // runGitOutput executes a git command and returns its output, failing if it errors.
 func runGitOutput(dir string, args ...string) string {
-	cmd := exec.Command("git", args...)
-	cmd.Dir = dir
-	out, err := cmd.CombinedOutput()
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "git %v: %s", args, string(out))
-	return string(out)
+	return execGit(dir, args...)
 }
 
 // writeFile creates directories as needed and writes content to a file.
