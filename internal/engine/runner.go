@@ -23,9 +23,8 @@ func TriggerPath(repoDir string) string {
 
 // WriteTrigger writes a commit hash to the trigger file.
 func WriteTrigger(repoDir, commitHash string) error {
-	dir := filepath.Join(repoDir, ".line")
-	if err := fileutil.EnsureDir(dir); err != nil {
-		return fmt.Errorf("creating .line directory: %w", err)
+	if err := ensureLineDotDir(repoDir); err != nil {
+		return err
 	}
 	return os.WriteFile(TriggerPath(repoDir), []byte(commitHash+"\n"), 0644)
 }
@@ -55,11 +54,19 @@ func PIDPath(repoDir string) string {
 
 // WritePID writes the current process ID to the PID file.
 func WritePID(repoDir string) error {
+	if err := ensureLineDotDir(repoDir); err != nil {
+		return err
+	}
+	return os.WriteFile(PIDPath(repoDir), []byte(strconv.Itoa(os.Getpid())+"\n"), 0644)
+}
+
+// ensureLineDotDir ensures the .line directory exists in the repository.
+func ensureLineDotDir(repoDir string) error {
 	dir := filepath.Join(repoDir, ".line")
 	if err := fileutil.EnsureDir(dir); err != nil {
 		return fmt.Errorf("creating .line directory: %w", err)
 	}
-	return os.WriteFile(PIDPath(repoDir), []byte(strconv.Itoa(os.Getpid())+"\n"), 0644)
+	return nil
 }
 
 // ReadPID reads the PID from the PID file. Returns 0 on any error.

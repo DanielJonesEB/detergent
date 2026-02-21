@@ -77,11 +77,6 @@ func (r *Repo) CommitMessage(hash string) (string, error) {
 	return r.run("log", "-1", "--format=%B", hash)
 }
 
-// DiffForCommit returns the diff for a single commit.
-func (r *Repo) DiffForCommit(hash string) (string, error) {
-	return r.run("diff", hash+"~1", hash)
-}
-
 // AddNote adds a git note to a commit under the "line" namespace.
 func (r *Repo) AddNote(commit, message string) error {
 	_, err := r.run("notes", "--ref=line", "add", "-f", "-m", message, commit)
@@ -145,13 +140,18 @@ func (r *Repo) ResetSoft(ref string) error {
 	return err
 }
 
+// abortRebase aborts any in-progress rebase, ignoring errors.
+func (r *Repo) abortRebase() {
+	cmd := exec.Command("git", "rebase", "--abort")
+	cmd.Dir = r.Dir
+	_, _ = cmd.CombinedOutput() // ignore error — fails if no rebase in progress
+}
+
 // Rebase rebases the current branch onto targetBranch.
 // If conflicts occur, aborts the rebase and hard resets to targetBranch.
 func (r *Repo) Rebase(targetBranch string) error {
 	// Abort any stale in-progress rebase from a previous interrupted run.
-	abortCmd := exec.Command("git", "rebase", "--abort")
-	abortCmd.Dir = r.Dir
-	_, _ = abortCmd.CombinedOutput() // ignore error — fails if no rebase in progress
+	r.abortRebase()
 
 	_, err := r.run("rebase", targetBranch)
 	if err != nil {
@@ -159,9 +159,7 @@ func (r *Repo) Rebase(targetBranch string) error {
 		// Concern branches are auto-generated; stale commits that
 		// conflict with upstream should be discarded so the agent
 		// can regenerate from a clean base.
-		abort := exec.Command("git", "rebase", "--abort")
-		abort.Dir = r.Dir
-		_, _ = abort.CombinedOutput()
+		r.abortRebase()
 
 		_, resetErr := r.run("reset", "--hard", targetBranch)
 		if resetErr != nil {

@@ -603,6 +603,9 @@ func invokeAgent(cfg *config.Config, concern config.Concern, worktreeDir, contex
 	}
 	defer ptmx.Close()
 
+	// Set LINE_AGENT so that post-commit hooks inside the worktree
+	// know they're running inside a line agent and don't re-trigger
+	cmd.Env = append(os.Environ(), "LINE_AGENT=1")
 	cmd.Stdin = strings.NewReader(context)
 	cmd.Stdout = pts
 	cmd.Stderr = pts

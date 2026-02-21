@@ -154,65 +154,6 @@ if command -v line >/dev/null 2>&1; then
     line gate || exit 1
 fi
 # END line gate`
-)
-
-// initPreCommitHook installs or injects a `line gate` call into .git/hooks/pre-commit.
-// If no hook exists, a fresh one is created. If one exists, the gate block is injected
-// using sentinel markers. Re-running is idempotent: the sentinel is detected and skipped.
-func initPreCommitHook(repoDir string) error {
-	hookDir := filepath.Join(repoDir, ".git", "hooks")
-	hookPath := filepath.Join(hookDir, "pre-commit")
-
-	if err := os.MkdirAll(hookDir, 0o755); err != nil {
-		return fmt.Errorf("creating hooks directory: %w", err)
-	}
-
-	// Check for existing hook
-	existing, err := os.ReadFile(hookPath)
-	if err == nil {
-		return injectGateBlock(hookPath, string(existing))
-	}
-
-	// No existing hook — write a fresh one
-	content := "#!/bin/sh\n" + gateBlock + "\n"
-	if err := os.WriteFile(hookPath, []byte(content), 0o755); err != nil {
-		return fmt.Errorf("writing pre-commit hook: %w", err)
-	}
-
-	fmt.Println("  hook   .git/hooks/pre-commit")
-	return nil
-}
-
-// injectGateBlock injects the gate block into an existing hook script.
-// If the sentinel markers are already present, it's a no-op.
-func injectGateBlock(hookPath, content string) error {
-	if strings.Contains(content, gateBeginMarker) {
-		fmt.Println("  skip   .git/hooks/pre-commit (line gate already present)")
-		return nil
-	}
-
-	// Insert before the last "exit 0" if present, otherwise append
-	var updated string
-	if idx := strings.LastIndex(content, "\nexit 0"); idx != -1 {
-		// Inject before the final "exit 0", preserving surrounding newlines
-		updated = content[:idx] + "\n" + gateBlock + "\n" + content[idx+1:]
-	} else {
-		// Append to end, ensuring a newline separator
-		if !strings.HasSuffix(content, "\n") {
-			content += "\n"
-		}
-		updated = content + "\n" + gateBlock + "\n"
-	}
-
-	if err := os.WriteFile(hookPath, []byte(updated), 0o755); err != nil {
-		return fmt.Errorf("writing pre-commit hook: %w", err)
-	}
-
-	fmt.Println("  hook   .git/hooks/pre-commit (injected line gate)")
-	return nil
-}
-
-const (
 	runnerBeginMarker = "# BEGIN line runner"
 	runnerBlock       = `# BEGIN line runner
 if command -v line >/dev/null 2>&1; then
@@ -221,51 +162,72 @@ fi
 # END line runner`
 )
 
+// initPreCommitHook installs or injects a `line gate` call into .git/hooks/pre-commit.
+// If no hook exists, a fresh one is created. If one exists, the gate block is injected
+// using sentinel markers. Re-running is idempotent: the sentinel is detected and skipped.
+func initPreCommitHook(repoDir string) error {
+	return initHook(repoDir, "pre-commit", gateBeginMarker, gateBlock)
+}
+
 // initPostCommitHook installs or injects a `line trigger` call into .git/hooks/post-commit.
 // If no hook exists, a fresh one is created. If one exists, the runner block is injected
 // using sentinel markers. Re-running is idempotent: the sentinel is detected and skipped.
 func initPostCommitHook(repoDir string) error {
-	hookDir := filepath.Join(repoDir, ".git", "hooks")
-	hookPath := filepath.Join(hookDir, "post-commit")
+	return initHook(repoDir, "post-commit", runnerBeginMarker, runnerBlock)
+}
 
-	if err := os.MkdirAll(hookDir, 0o755); err != nil {
+// initHook installs or injects a block into a git hook script.
+// If no hook exists, a fresh one is created. If one exists, the block is injected
+// using sentinel markers. Re-running is idempotent: the sentinel is detected and skipped.
+func initHook(repoDir, hookName, beginMarker, block string) error {
+	hookDir := filepath.Join(repoDir, ".git", "hooks")
+	hookPath := filepath.Join(hookDir, hookName)
+
+	if err := fileutil.EnsureDir(hookDir); err != nil {
 		return fmt.Errorf("creating hooks directory: %w", err)
 	}
 
 	// Check for existing hook
 	existing, err := os.ReadFile(hookPath)
 	if err == nil {
-		return injectRunnerBlock(hookPath, string(existing))
+		return injectBlock(hookPath, hookName, beginMarker, block, string(existing))
 	}
 
 	// No existing hook — write a fresh one
-	content := "#!/bin/sh\n" + runnerBlock + "\n"
+	content := "#!/bin/sh\n" + block + "\n"
 	if err := os.WriteFile(hookPath, []byte(content), 0o755); err != nil {
-		return fmt.Errorf("writing post-commit hook: %w", err)
+		return fmt.Errorf("writing %s hook: %w", hookName, err)
 	}
 
-	fmt.Println("  hook   .git/hooks/post-commit")
+	fmt.Printf("  hook   .git/hooks/%s\n", hookName)
 	return nil
 }
 
-// injectRunnerBlock injects the runner block into an existing hook script.
+// injectBlock injects a block into an existing hook script.
 // If the sentinel markers are already present, it's a no-op.
-func injectRunnerBlock(hookPath, content string) error {
-	if strings.Contains(content, runnerBeginMarker) {
-		fmt.Println("  skip   .git/hooks/post-commit (line runner already present)")
+func injectBlock(hookPath, hookName, beginMarker, block, content string) error {
+	if strings.Contains(content, beginMarker) {
+		fmt.Printf("  skip   .git/hooks/%s (line %s already present)\n", hookName, strings.TrimPrefix(beginMarker, "# BEGIN line "))
 		return nil
 	}
 
-	// Append to end, ensuring a newline separator
-	if !strings.HasSuffix(content, "\n") {
-		content += "\n"
+	// For pre-commit, try to insert before the last "exit 0"; for others, always append
+	var updated string
+	if hookName == "pre-commit" && strings.LastIndex(content, "\nexit 0") != -1 {
+		idx := strings.LastIndex(content, "\nexit 0")
+		updated = content[:idx] + "\n" + block + "\n" + content[idx+1:]
+	} else {
+		// Append to end, ensuring a newline separator
+		if !strings.HasSuffix(content, "\n") {
+			content += "\n"
+		}
+		updated = content + "\n" + block + "\n"
 	}
-	updated := content + "\n" + runnerBlock + "\n"
 
 	if err := os.WriteFile(hookPath, []byte(updated), 0o755); err != nil {
-		return fmt.Errorf("writing post-commit hook: %w", err)
+		return fmt.Errorf("writing %s hook: %w", hookName, err)
 	}
 
-	fmt.Println("  hook   .git/hooks/post-commit (injected line runner)")
+	fmt.Printf("  hook   .git/hooks/%s (injected line %s)\n", hookName, strings.TrimPrefix(beginMarker, "# BEGIN line "))
 	return nil
 }

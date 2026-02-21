@@ -21,6 +21,11 @@ var triggerCmd = &cobra.Command{
 	Hidden: true,
 	Args:   cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// Don't re-trigger when running inside a line agent worktree
+		if os.Getenv("LINE_AGENT") != "" {
+			return nil
+		}
+
 		_, repoDir, err := loadConfigAndRepo(configPath)
 		if err != nil {
 			return err

@@ -24,7 +24,7 @@ var _ = BeforeSuite(func() {
 	projectRoot := filepath.Join(filepath.Dir(thisFile), "..", "..")
 	binaryPath = filepath.Join(projectRoot, "bin", "line-test")
 
-	cmd := exec.Command("go", "build", "-o", binaryPath, "./cmd/line")
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", binaryPath, "./cmd/line")
 	cmd.Dir = projectRoot
 	cmd.Env = append(cmd.Environ(), "CGO_ENABLED=0")
 	output, err := cmd.CombinedOutput()
