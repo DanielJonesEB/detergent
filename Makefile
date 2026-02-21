@@ -22,7 +22,8 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 install: build
-	@DEST=$$(go env GOPATH)/bin; \
+	@DEST=$$(go env GOBIN 2>/dev/null); \
+	if [ -z "$$DEST" ]; then DEST=$$(go env GOPATH)/bin; fi; \
 	mkdir -p "$$DEST"; \
 	rm -f "$$DEST/$(BINARY_NAME)"; \
 	cp $(BUILD_DIR)/$(BINARY_NAME) "$$DEST/$(BINARY_NAME)"; \
