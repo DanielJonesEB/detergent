@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"syscall"
 
 	"github.com/re-cinq/assembly-line/internal/engine"
 	"github.com/spf13/cobra"
@@ -57,7 +56,7 @@ var triggerCmd = &cobra.Command{
 			runCmd.Stdin = nil
 			runCmd.Stdout = nil
 			runCmd.Stderr = nil
-			runCmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+			runCmd.SysProcAttr = detachedProcAttr()
 
 			// Strip CLAUDECODE env var so the runner can invoke Claude
 			// agents even when triggered from within a Claude Code session

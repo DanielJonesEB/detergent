@@ -3,6 +3,7 @@ dist/
 .line/
 notes/
 /line
+/line.exe
 line-test
 .claudit/
 # test trigger
