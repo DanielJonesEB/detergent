@@ -169,8 +169,10 @@ func (r *Repo) StageAll() error {
 }
 
 // Commit creates a commit with the given message.
+// Uses --no-verify to skip pre-commit hooks since Assembly Line commits
+// after the agent has exited — no agent is available to fix hook failures.
 func (r *Repo) Commit(message string) error {
-	_, err := r.run("commit", "-m", message)
+	_, err := r.run("commit", "--no-verify", "-m", message)
 	return err
 }
 
