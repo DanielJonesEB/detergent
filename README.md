@@ -140,6 +140,8 @@ If anything goes wrong: `git reset --hard pre-rebase-backup`
 
 **Note:** When running as a daemon, line automatically reloads `line.yaml` at the start of each poll cycle. Config changes take effect immediately without requiring a restart.
 
+**Resilience:** On startup, line checks for and auto-repairs `core.bare=true` git config corruption (a known VS Code / concurrent-write race condition). If detected, it silently repairs the config so commands continue to work without manual intervention.
+
 ## Claude Code Integration
 
 `line init` sets up:
@@ -175,6 +177,7 @@ If anything goes wrong: `git reset --hard pre-rebase-backup`
 
 ```bash
 make build    # Build binary (bin/line); auto-codesigns on macOS
+make install  # Install binary to $(go env GOBIN) or ~/go/bin
 make test     # Run acceptance tests
 make lint     # Run linter (requires golangci-lint)
 make fmt      # Format code
