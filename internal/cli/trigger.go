@@ -63,15 +63,12 @@ var triggerCmd = &cobra.Command{
 			// - GIT_DIR/GIT_INDEX_FILE/GIT_WORK_TREE: set by git during
 			//   hook execution, they override the worktree's own git
 			//   context and cause "index file open failed: Not a directory"
-			for _, e := range os.Environ() {
-				if strings.HasPrefix(e, "CLAUDECODE=") ||
-					strings.HasPrefix(e, "GIT_DIR=") ||
-					strings.HasPrefix(e, "GIT_INDEX_FILE=") ||
-					strings.HasPrefix(e, "GIT_WORK_TREE=") {
-					continue
-				}
-				runCmd.Env = append(runCmd.Env, e)
-			}
+			runCmd.Env = engine.FilterEnv(
+				"CLAUDECODE=",
+				"GIT_DIR=",
+				"GIT_INDEX_FILE=",
+				"GIT_WORK_TREE=",
+			)
 
 			if err := runCmd.Start(); err != nil {
 				return fmt.Errorf("spawning runner: %w", err)

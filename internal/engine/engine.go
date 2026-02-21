@@ -558,6 +558,26 @@ func assembleContext(repo *gitops.Repo, cfg *config.Config, concern config.Conce
 	return sb.String(), nil
 }
 
+// FilterEnv returns a copy of os.Environ() with variables matching any of the
+// given prefixes removed. Prefixes should include the '=' suffix for exact matching
+// (e.g., "CLAUDECODE=", not "CLAUDECODE").
+func FilterEnv(excludePrefixes ...string) []string {
+	result := make([]string, 0, len(os.Environ()))
+	for _, e := range os.Environ() {
+		skip := false
+		for _, prefix := range excludePrefixes {
+			if strings.HasPrefix(e, prefix) {
+				skip = true
+				break
+			}
+		}
+		if !skip {
+			result = append(result, e)
+		}
+	}
+	return result
+}
+
 func invokeAgent(cfg *config.Config, concern config.Concern, worktreeDir, context string, output io.Writer) error {
 	// Write context to a file in the worktree (available to the agent)
 	contextFile := filepath.Join(worktreeDir, ".line-context")
@@ -607,13 +627,7 @@ func invokeAgent(cfg *config.Config, concern config.Concern, worktreeDir, contex
 	// - Strip CLAUDECODE so Claude Code agents don't refuse to start
 	//   when line is invoked from within a Claude Code session
 	// - Set LINE_AGENT so post-commit hooks don't re-trigger
-	env := make([]string, 0, len(os.Environ())+1)
-	for _, e := range os.Environ() {
-		if !strings.HasPrefix(e, "CLAUDECODE=") {
-			env = append(env, e)
-		}
-	}
-	cmd.Env = append(env, "LINE_AGENT=1")
+	cmd.Env = append(FilterEnv("CLAUDECODE="), "LINE_AGENT=1")
 	cmd.Stdin = strings.NewReader(context)
 	cmd.Stdout = pts
 	cmd.Stderr = pts
