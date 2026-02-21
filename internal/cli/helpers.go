@@ -3,8 +3,10 @@ package cli
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/re-cinq/assembly-line/internal/config"
@@ -32,6 +34,7 @@ func loadAndValidateConfig(path string) (*config.Config, error) {
 
 // loadConfigAndRepo loads and validates a config file and resolves the repository root.
 // This consolidates the common pattern used across most CLI commands.
+// It also ensures core.bare is set to false to prevent corruption from git/VS Code race conditions.
 func loadConfigAndRepo(configPath string) (*config.Config, string, error) {
 	cfg, err := loadAndValidateConfig(configPath)
 	if err != nil {
@@ -41,7 +44,31 @@ func loadConfigAndRepo(configPath string) (*config.Config, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
+	// Ensure core.bare is false — auto-repair if corrupted by race conditions
+	ensureCoreBareIsFalse(repoDir)
 	return cfg, repoDir, nil
+}
+
+// ensureCoreBareIsFalse checks if core.bare is set to true and repairs it if needed.
+// This guards against race conditions between VS Code's git extension and the line runner
+// that can corrupt the git config by setting core.bare=true.
+func ensureCoreBareIsFalse(repoDir string) {
+	cmd := exec.Command("git", "config", "core.bare")
+	cmd.Dir = repoDir
+	out, err := cmd.Output()
+	if err != nil {
+		return // config not set or error reading it
+	}
+	if strings.TrimSpace(string(out)) == "true" {
+		// Auto-repair the corruption
+		repairCmd := exec.Command("git", "config", "core.bare", "false")
+		repairCmd.Dir = repoDir
+		if err := repairCmd.Run(); err != nil {
+			fileutil.LogError("warning: failed to repair core.bare=true: %s", err)
+		} else {
+			fileutil.LogError("info: repaired corrupted core.bare=true setting")
+		}
+	}
 }
 
 // resolveRepo finds the git repository root from a config file path.

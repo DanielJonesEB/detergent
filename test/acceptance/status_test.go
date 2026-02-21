@@ -39,7 +39,7 @@ concerns:
 			cmd := exec.Command(binaryPath, "status", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred())
-			Expect(string(output)).To(ContainSubstring("not running"))
+			Expect(string(output)).To(ContainSubstring("inactive"))
 		})
 	})
 

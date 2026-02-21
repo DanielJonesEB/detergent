@@ -12,6 +12,17 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// filterOutEnv removes variables matching the given prefix from the environment.
+func filterOutEnv(env []string, prefix string) []string {
+	result := make([]string, 0, len(env))
+	for _, e := range env {
+		if !strings.HasPrefix(e, prefix) {
+			result = append(result, e)
+		}
+	}
+	return result
+}
+
 var _ = Describe("line trigger", func() {
 	var tmpDir string
 	var repoDir string
@@ -42,6 +53,8 @@ concerns:
 	It("writes trigger file with HEAD hash", func() {
 		cmd := exec.Command(binaryPath, "trigger", "--path", configPath)
 		cmd.Dir = repoDir
+		// Clear LINE_AGENT so the trigger command doesn't skip
+		cmd.Env = filterOutEnv(os.Environ(), "LINE_AGENT=")
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "trigger failed: %s", string(output))
 
@@ -61,6 +74,8 @@ concerns:
 
 		cmd := exec.Command(binaryPath, "trigger", "--path", configPath)
 		cmd.Dir = repoDir
+		// Clear LINE_AGENT so the trigger command doesn't skip
+		cmd.Env = filterOutEnv(os.Environ(), "LINE_AGENT=")
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "trigger failed: %s", string(output))
 
