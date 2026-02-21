@@ -603,9 +603,17 @@ func invokeAgent(cfg *config.Config, concern config.Concern, worktreeDir, contex
 	}
 	defer ptmx.Close()
 
-	// Set LINE_AGENT so that post-commit hooks inside the worktree
-	// know they're running inside a line agent and don't re-trigger
-	cmd.Env = append(os.Environ(), "LINE_AGENT=1")
+	// Build a clean environment for the agent:
+	// - Strip CLAUDECODE so Claude Code agents don't refuse to start
+	//   when line is invoked from within a Claude Code session
+	// - Set LINE_AGENT so post-commit hooks don't re-trigger
+	env := make([]string, 0, len(os.Environ())+1)
+	for _, e := range os.Environ() {
+		if !strings.HasPrefix(e, "CLAUDECODE=") {
+			env = append(env, e)
+		}
+	}
+	cmd.Env = append(env, "LINE_AGENT=1")
 	cmd.Stdin = strings.NewReader(context)
 	cmd.Stdout = pts
 	cmd.Stderr = pts

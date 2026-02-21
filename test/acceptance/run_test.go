@@ -244,6 +244,33 @@ concerns:
 		Expect(os.IsNotExist(err)).To(BeTrue(), "settings.json should not exist when permissions not configured")
 	})
 
+	It("strips CLAUDECODE env var from agent environment", func() {
+		envConfigPath := filepath.Join(repoDir, "line-env.yaml")
+		writeFile(envConfigPath, `
+agent:
+  command: "sh"
+  args: ["-c", "env > env-dump.txt"]
+
+settings:
+  branch_prefix: "line/"
+
+concerns:
+  - name: security
+    watches: main
+    prompt: "Check env"
+`)
+		cmd := exec.Command(binaryPath, "run", "--once", "--path", envConfigPath)
+		cmd.Env = append(os.Environ(), "CLAUDECODE=some-value")
+		output, err := cmd.CombinedOutput()
+		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
+
+		wtPath := filepath.Join(repoDir, ".line", "worktrees", "line", "security")
+		envDump, err := os.ReadFile(filepath.Join(wtPath, "env-dump.txt"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(envDump)).NotTo(ContainSubstring("CLAUDECODE="))
+		Expect(string(envDump)).To(ContainSubstring("LINE_AGENT=1"))
+	})
+
 	It("is idempotent - running twice doesn't create duplicate commits", func() {
 		cmd1 := exec.Command(binaryPath, "run", "--once", "--path", configPath)
 		out1, err := cmd1.CombinedOutput()
