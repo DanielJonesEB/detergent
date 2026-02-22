@@ -35,8 +35,6 @@ type StatuslineOutput struct {
 	SourceCommit       string        `json:"source_commit,omitempty"`
 	Dirty              bool          `json:"dirty"`
 	Stations           []StationData `json:"stations"`
-	Roots              []string      `json:"roots"`
-	Graph              []GraphEdge   `json:"graph"`
 	HasUnpickedCommits bool          `json:"has_unpicked_commits"`
 }
 
@@ -51,27 +49,13 @@ type StationData struct {
 	BehindHead bool   `json:"behind_head"`
 }
 
-// GraphEdge represents a dependency: Child watches Parent.
-type GraphEdge struct {
-	From string `json:"from"`
-	To   string `json:"to"`
-}
-
 // gatherStatuslineData collects status data for all stations without serializing.
-
 func gatherStatuslineData(cfg *config.Config, repoDir string) StatuslineOutput {
 	repo := gitops.NewRepo(repoDir)
 
 	stations := make([]StationData, 0)
-	roots := cfg.FindRoots()
-	graph := make([]GraphEdge, 0)
 
 	for _, c := range cfg.Stations {
-		// Build graph edges
-		if cfg.HasStation(c.Watches) {
-			graph = append(graph, GraphEdge{From: c.Watches, To: c.Name})
-		}
-
 		// Read status file
 		status, _ := engine.ReadStatus(repoDir, c.Name)
 
@@ -119,20 +103,12 @@ func gatherStatuslineData(cfg *config.Config, repoDir string) StatuslineOutput {
 		stations = append(stations, cd)
 	}
 
-	// Determine if the terminal station branch has commits ahead of the root watched branch.
+	// Determine if the terminal station branch (last in list) has commits
+	// ahead of the root watched branch.
 	hasUnpicked := false
-	downstream := make(map[string]bool)
-	for _, e := range graph {
-		downstream[e.From] = true
-	}
-	var terminals []string
-	for _, c := range stations {
-		if !downstream[c.Name] {
-			terminals = append(terminals, c.Name)
-		}
-	}
-	if len(terminals) == 1 {
-		terminalBranch := cfg.Settings.BranchPrefix + terminals[0]
+	if len(cfg.Stations) > 0 {
+		terminal := cfg.Stations[len(cfg.Stations)-1].Name
+		terminalBranch := cfg.Settings.BranchPrefix + terminal
 		rootWatched := cfg.Settings.Watches
 		if repo.BranchExists(terminalBranch) {
 			if commits, err := repo.CommitsBetween(rootWatched, terminalBranch); err == nil && len(commits) > 0 {
@@ -157,8 +133,6 @@ func gatherStatuslineData(cfg *config.Config, repoDir string) StatuslineOutput {
 		SourceCommit:       sourceCommit,
 		Dirty:              dirty,
 		Stations:           stations,
-		Roots:              roots,
-		Graph:              graph,
 		HasUnpickedCommits: hasUnpicked,
 	}
 }

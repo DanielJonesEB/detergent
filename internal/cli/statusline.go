@@ -89,42 +89,7 @@ func renderStation(name string, stations map[string]StationData) string {
 	return fmt.Sprintf("%s%s %s%s", clr, name, sym, ansiReset)
 }
 
-// buildLine follows single-child edges from name into a linear line.
-func buildLine(name string, downstream map[string][]string) []string {
-	line := []string{name}
-	for {
-		children := downstream[line[len(line)-1]]
-		if len(children) != 1 {
-			break
-		}
-		line = append(line, children[0])
-	}
-	return line
-}
-
-// collectBranches collects all fork arms rooted at name via DFS.
-func collectBranches(name string, downstream map[string][]string) [][]string {
-	line := buildLine(name, downstream)
-	last := line[len(line)-1]
-	result := [][]string{line}
-	children := downstream[last]
-	if len(children) > 1 {
-		for _, child := range children {
-			result = append(result, collectBranches(child, downstream)...)
-		}
-	}
-	return result
-}
-
-func renderLine(line []string, stations map[string]StationData) string {
-	parts := make([]string, len(line))
-	for i, name := range line {
-		parts[i] = renderStation(name, stations)
-	}
-	return strings.Join(parts, " ── ")
-}
-
-// renderGraph produces the full ANSI-colored graph string from statusline data.
+// renderGraph produces the full ANSI-colored line string from statusline data.
 func renderGraph(data StatuslineOutput) string {
 	if len(data.Stations) == 0 {
 		return ""
@@ -135,60 +100,16 @@ func renderGraph(data StatuslineOutput) string {
 		stations[c.Name] = c
 	}
 
-	// Build downstream adjacency: parent -> [children]
-	downstream := make(map[string][]string)
-	for _, edge := range data.Graph {
-		downstream[edge.From] = append(downstream[edge.From], edge.To)
-	}
-
-	// Group roots by their watched branch
-	branchRoots := make(map[string][]string)
-	// Preserve branch order from config
-	var branchOrder []string
-	rootSet := make(map[string]bool)
-	for _, r := range data.Roots {
-		rootSet[r] = true
-	}
-	for _, c := range data.Stations {
-		if rootSet[c.Name] {
-			if _, seen := branchRoots[c.Watches]; !seen {
-				branchOrder = append(branchOrder, c.Watches)
-			}
-			branchRoots[c.Watches] = append(branchRoots[c.Watches], c.Name)
-		}
+	// Render as ordered list: source_branch ─── station1 ─── station2 ─── ...
+	parts := make([]string, len(data.Stations))
+	for i, c := range data.Stations {
+		parts[i] = renderStation(c.Name, stations)
 	}
 
 	var sb strings.Builder
-	for bi, branch := range branchOrder {
-		rootNames := branchRoots[branch]
+	sb.WriteString(fmt.Sprintf("%s ─── %s", data.SourceBranch, strings.Join(parts, " ── ")))
 
-		// Collect all fork arms
-		var arms [][]string
-		for _, rn := range rootNames {
-			arms = append(arms, collectBranches(rn, downstream)...)
-		}
-
-		if len(arms) == 1 {
-			sb.WriteString(fmt.Sprintf("%s ─── %s", branch, renderLine(arms[0], stations)))
-		} else {
-			sb.WriteString(fmt.Sprintf("%s ─┬─ %s", branch, renderLine(arms[0], stations)))
-			padding := strings.Repeat(" ", len(branch)+2)
-			for i, arm := range arms[1:] {
-				connector := "├"
-				if i == len(arms)-2 { // last arm
-					connector = "└"
-				}
-				sb.WriteString(fmt.Sprintf("\n%s%s─ %s", padding, connector, renderLine(arm, stations)))
-			}
-		}
-
-		if bi < len(branchOrder)-1 {
-			sb.WriteString("\n")
-		}
-	}
-
-	// Check if the line is complete with results ready to rebase
-	if hint := rebaseHint(data, stations, downstream); hint != "" {
+	if hint := rebaseHint(data); hint != "" {
 		sb.WriteString("\n")
 		sb.WriteString(hint)
 	}
@@ -198,32 +119,9 @@ func renderGraph(data StatuslineOutput) string {
 
 // rebaseHint returns a prompt to use /line-rebase if the terminal station branch
 // has commits ahead of the root watched branch. Returns "" if not applicable.
-func rebaseHint(data StatuslineOutput, stations map[string]StationData, downstream map[string][]string) string {
-	if len(stations) == 0 {
-		return ""
-	}
-
-	// Find terminal stations (not in any downstream edge's From)
-	hasChildren := make(map[string]bool)
-	for from := range downstream {
-		hasChildren[from] = true
-	}
-	var terminals []string
-	for name := range stations {
-		if !hasChildren[name] {
-			terminals = append(terminals, name)
-		}
-	}
-
-	// Only support linear lines (single terminal)
-	if len(terminals) != 1 {
-		return ""
-	}
-
-	// The terminal station branch must have commits ahead of the root watched branch
+func rebaseHint(data StatuslineOutput) string {
 	if !data.HasUnpickedCommits {
 		return ""
 	}
-
 	return fmt.Sprintf("\033[1;33m⚠ use /line-rebase to pick up latest changes%s", ansiReset)
 }

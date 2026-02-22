@@ -61,20 +61,6 @@ var _ = Describe("line validate", func() {
 		})
 	})
 
-	Context("with a cycle in the station graph", func() {
-		It("exits with a non-zero code", func() {
-			cmd := exec.Command(binaryPath, "validate", "--path", testdataPath("cycle.yaml"))
-			err := cmd.Run()
-			Expect(err).To(HaveOccurred())
-		})
-
-		It("reports the cycle", func() {
-			cmd := exec.Command(binaryPath, "validate", "--path", testdataPath("cycle.yaml"))
-			output, _ := cmd.CombinedOutput()
-			Expect(string(output)).To(ContainSubstring("cycle detected"))
-		})
-	})
-
 	Context("with a nonexistent file", func() {
 		It("exits with a non-zero code", func() {
 			cmd := exec.Command(binaryPath, "validate", "--path", "/tmp/does-not-exist.yaml")
