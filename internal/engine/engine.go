@@ -75,11 +75,6 @@ func (lm *LogManager) truncateLogFile(stationName string) error {
 	return nil
 }
 
-// LogPath returns the log file path pattern for display purposes.
-func LogPath() string {
-	return filepath.Join(os.TempDir(), "line-<station>.log")
-}
-
 // LogPathFor returns the log file path for a specific station.
 func LogPathFor(stationName string) string {
 	return filepath.Join(os.TempDir(), fmt.Sprintf("line-%s.log", stationName))
