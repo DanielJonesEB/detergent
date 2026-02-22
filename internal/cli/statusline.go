@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/re-cinq/assembly-line/internal/config"
-	"github.com/re-cinq/assembly-line/internal/engine"
 	"github.com/spf13/cobra"
 )
 
@@ -197,8 +196,8 @@ func renderGraph(data StatuslineOutput) string {
 	return sb.String()
 }
 
-// rebaseHint returns a prompt to use /line-rebase if the station line is complete
-// with modifications ready to land. Returns "" if not applicable.
+// rebaseHint returns a prompt to use /line-rebase if the terminal station branch
+// has commits ahead of the root watched branch. Returns "" if not applicable.
 func rebaseHint(data StatuslineOutput, stations map[string]StationData, downstream map[string][]string) string {
 	if len(stations) == 0 {
 		return ""
@@ -219,14 +218,6 @@ func rebaseHint(data StatuslineOutput, stations map[string]StationData, downstre
 	// Only support linear lines (single terminal)
 	if len(terminals) != 1 {
 		return ""
-	}
-
-	// All stations must be idle
-	for _, c := range stations {
-		switch c.State {
-		case engine.StateChangeDetected, engine.StateAgentRunning, engine.StateCommitting, engine.StateFailed, "pending":
-			return ""
-		}
 	}
 
 	// The terminal station branch must have commits ahead of the root watched branch
