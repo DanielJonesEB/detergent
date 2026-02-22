@@ -211,8 +211,6 @@ The daemon should provide:
 
 ### Graph Visualization (Terminal)
 
-A `line viz` command that shows the configured station graph in the terminal (see below).
-
 A `line status` command that displays the station graph in the terminal:
 
 ```

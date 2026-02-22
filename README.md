@@ -109,9 +109,6 @@ line gate
 # Validate your config (defaults to line.yaml)
 line validate
 
-# See the station line
-line viz
-
 # Run once and exit
 line run --once
 
