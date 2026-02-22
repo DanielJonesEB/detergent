@@ -175,10 +175,6 @@ func renderStatus(w io.Writer, cfg *config.Config, repoDir string, showLogs bool
 		}
 	}
 
-	// Show runner status after stations
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, formatRunner(repoDir))
-
 	// In follow mode, show last few log lines for active stations
 	if showLogs && len(activeStations) > 0 {
 		for _, name := range activeStations {
@@ -226,19 +222,6 @@ func readLastLines(path string, n int) string {
 		lines = lines[len(lines)-n:]
 	}
 	return strings.Join(lines, "\n") + "\n"
-}
-
-// formatRunner returns a coloured runner status line.
-func formatRunner(repoDir string) string {
-	if !engine.IsRunnerAlive(repoDir) {
-		return fmt.Sprintf("  %s·  %-20s  inactive%s", ansiDarkGrey, "line runner", ansiReset)
-	}
-	pid := engine.ReadPID(repoDir)
-	since := ""
-	if info, err := os.Stat(engine.PIDPath(repoDir)); err == nil {
-		since = info.ModTime().Format("15:04")
-	}
-	return fmt.Sprintf("  %s·  %-20s  alive since %s (PID %d)%s", ansiLightGrey, "line runner", since, pid, ansiReset)
 }
 
 func short(hash string) string {

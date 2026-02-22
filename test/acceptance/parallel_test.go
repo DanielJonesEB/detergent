@@ -43,7 +43,7 @@ stations:
 		})
 
 		It("processes both stations", func() {
-			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+			cmd := exec.Command(binaryPath, "run", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -54,7 +54,7 @@ stations:
 
 		It("runs independent stations concurrently (faster than serial)", func() {
 			start := time.Now()
-			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+			cmd := exec.Command(binaryPath, "run", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			elapsed := time.Since(start)
 			Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
@@ -85,7 +85,7 @@ stations:
 		})
 
 		It("processes dependent stations sequentially", func() {
-			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+			cmd := exec.Command(binaryPath, "run", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 

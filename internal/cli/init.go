@@ -157,7 +157,7 @@ fi
 	runnerBeginMarker = "# BEGIN line runner"
 	runnerBlock       = `# BEGIN line runner
 if command -v line >/dev/null 2>&1; then
-    line trigger >/dev/null 2>&1
+    line run >/dev/null 2>&1 &
 fi
 # END line runner`
 )
@@ -169,7 +169,7 @@ func initPreCommitHook(repoDir string) error {
 	return initHook(repoDir, "pre-commit", gateBeginMarker, gateBlock)
 }
 
-// initPostCommitHook installs or injects a `line trigger` call into .git/hooks/post-commit.
+// initPostCommitHook installs or injects a `line run` call into .git/hooks/post-commit.
 // If no hook exists, a fresh one is created. If one exists, the runner block is injected
 // using sentinel markers. Re-running is idempotent: the sentinel is detected and skipped.
 func initPostCommitHook(repoDir string) error {

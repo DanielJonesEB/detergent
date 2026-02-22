@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -390,12 +389,7 @@ stations:
 		Expect(checkConsistency(snap)).To(Succeed(), "pre-runner consistency")
 		Expect(getState(snap)).To(Equal("unknown"))
 
-		// ── PHASE 2: Write trigger and start runner, poll through first processing cycle ──
-		lineDir := filepath.Join(repoDir, ".line")
-		Expect(os.MkdirAll(lineDir, 0o755)).To(Succeed())
-		head := strings.TrimSpace(runGitOutput(repoDir, "rev-parse", "HEAD"))
-		writeFile(filepath.Join(lineDir, "trigger"), head+"\n")
-
+		// ── PHASE 2: Start runner, poll through processing cycle ──
 		cmd := exec.Command(binaryPath, "run", "--path", configPath)
 		cmd.Dir = repoDir
 		cmd.Env = append(os.Environ(),
@@ -411,18 +405,15 @@ stations:
 		err := cmd.Start()
 		Expect(err).NotTo(HaveOccurred())
 
-		runnerStopped := false
 		defer func() {
-			if !runnerStopped {
-				cmd.Process.Signal(syscall.SIGINT)
-				cmd.Wait()
-			}
+			cmd.Process.Kill()
+			cmd.Wait()
 		}()
 
 		snapshots := pollCycle("", "idle", 30*time.Second)
 
-		// Validate consistency and transitions for first cycle
-		validateCycleConsistency(snapshots, "first cycle")
+		// Validate consistency and transitions
+		validateCycleConsistency(snapshots, "processing cycle")
 		validateTransitions(snapshots)
 
 		// Log observed states
@@ -430,16 +421,16 @@ stations:
 		for _, s := range snapshots {
 			seenStates[getState(s)] = true
 		}
-		GinkgoWriter.Printf("First cycle states observed: %v (%d snapshots)\n", seenStates, len(snapshots))
+		GinkgoWriter.Printf("Processing cycle states observed: %v (%d snapshots)\n", seenStates, len(snapshots))
 
 		// Soft assertion: the sleep 2 agent should give us time to see intermediate states
 		if !seenStates["change_detected"] && !seenStates["agent_running"] {
-			GinkgoWriter.Println("WARNING: no intermediate states observed during first cycle (timing-dependent)")
+			GinkgoWriter.Println("WARNING: no intermediate states observed during processing (timing-dependent)")
 		}
 
 		// Verify final state: idle with last_result=modified
 		finalSnap := snapshots[len(snapshots)-1]
-		Expect(checkConsistency(finalSnap)).To(Succeed(), "first cycle final snapshot")
+		Expect(checkConsistency(finalSnap)).To(Succeed(), "final snapshot")
 		for _, c := range finalSnap.statuslineData.Stations {
 			if c.Name == "readme" {
 				Expect(c.LastResult).To(Equal("modified"),
@@ -447,67 +438,15 @@ stations:
 			}
 		}
 
-		// ── PHASE 3: Make a new commit and update trigger to keep runner alive ──
-		writeFile(filepath.Join(repoDir, "newfile.txt"), "new content\n")
-		runGit(repoDir, "add", "newfile.txt")
-		runGit(repoDir, "commit", "-m", "second commit")
-
-		// Write a new trigger so the runner detects new work during its grace period
-		newHead := strings.TrimSpace(runGitOutput(repoDir, "rev-parse", "HEAD"))
-		writeFile(filepath.Join(lineDir, "trigger"), newHead+"\n")
-
-		// ── PHASE 4: Poll through second processing cycle ──
-		// Wait for state to leave idle (runner detects new commit), then wait for idle again
-		snapshots2 := pollCycle("idle", "idle", 30*time.Second)
-
-		validateCycleConsistency(snapshots2, "second cycle")
-
-		// For transition validation, skip snapshots that are still idle (pre-detection)
-		// and only validate the processing portion
-		var processingSnapshots []statusSnapshot
-		processing := false
-		for _, s := range snapshots2 {
-			state := getState(s)
-			if !processing && state != "idle" {
-				processing = true
-			}
-			if processing {
-				processingSnapshots = append(processingSnapshots, s)
-			}
-		}
-		if len(processingSnapshots) > 0 {
-			validateTransitions(processingSnapshots)
-		}
-
-		seenStates2 := make(map[string]bool)
-		for _, s := range snapshots2 {
-			seenStates2[getState(s)] = true
-		}
-		GinkgoWriter.Printf("Second cycle states observed: %v (%d snapshots)\n", seenStates2, len(snapshots2))
-
-		// Verify second cycle final state
-		finalSnap2 := snapshots2[len(snapshots2)-1]
-		Expect(checkConsistency(finalSnap2)).To(Succeed(), "second cycle final snapshot")
-		Expect(getState(finalSnap2)).To(Equal("idle"))
-
-		// Verify pending detection worked: we should have seen pending or change_detected
-		// at some point during the second cycle
-		Expect(seenStates2).To(SatisfyAny(
-			HaveKey("pending"),
-			HaveKey("change_detected"),
-			HaveKey("agent_running"),
-		), "should have observed the runner detecting and processing the new commit")
-
-		// ── PHASE 5: Wait for runner to self-retire and verify final state ──
+		// ── PHASE 3: Wait for runner to exit and verify final state ──
 		done := make(chan error, 1)
 		go func() { done <- cmd.Wait() }()
 
 		select {
 		case err := <-done:
-			runnerStopped = true
 			Expect(err).NotTo(HaveOccurred(), "runner output: %s", outputBuf.String())
 		case <-time.After(30 * time.Second):
-			Fail("runner did not self-retire; output: " + outputBuf.String())
+			Fail("runner did not exit; output: " + outputBuf.String())
 		}
 
 		// Final consistency check after runner exits

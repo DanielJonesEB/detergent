@@ -2,7 +2,7 @@
 
 ## Purpose
 
-A daemon that orchestrates coding agents in a station-based pipeline. Each agent focuses on a single quality station (security, deduplication, style, etc.). Changes flow through a directed graph of stations, with Git providing the audit trail and intent preservation.
+A runner that orchestrates coding agents in a station-based pipeline. Each agent focuses on a single quality station (security, deduplication, style, etc.). Changes flow through a directed graph of stations, with Git providing the audit trail and intent preservation.
 
 ---
 
@@ -204,7 +204,7 @@ If a user wants to "restart" a station:
 
 ## Observability
 
-The daemon should provide:
+The runner should provide:
 - Logging of when each station is triggered
 - Logging of agent invocations and outcomes
 - Current state inspection (which commit each station last processed)

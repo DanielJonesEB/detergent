@@ -237,20 +237,6 @@ func (cfg *Config) BuildNameSet() map[string]bool {
 	return nameSet
 }
 
-// BuildDownstreamMap builds an adjacency map: watched -> []watchers.
-// For each station, if it watches another station in the line, that creates
-// an edge: watched -> watcher.
-func (cfg *Config) BuildDownstreamMap() map[string][]string {
-	nameSet := cfg.BuildNameSet()
-	downstream := make(map[string][]string)
-	for _, c := range cfg.Stations {
-		if nameSet[c.Watches] {
-			downstream[c.Watches] = append(downstream[c.Watches], c.Name)
-		}
-	}
-	return downstream
-}
-
 // FindRoots returns the names of stations that watch external branches
 // (not other stations in the line).
 func (cfg *Config) FindRoots() []string {

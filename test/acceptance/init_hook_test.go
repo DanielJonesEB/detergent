@@ -194,7 +194,7 @@ stations:
 			content, err := os.ReadFile(hookPath)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(content)).To(ContainSubstring("# BEGIN line runner"))
-			Expect(string(content)).To(ContainSubstring("line trigger"))
+			Expect(string(content)).To(ContainSubstring("line run"))
 		})
 	})
 
@@ -250,7 +250,7 @@ stations:
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(hookContent)).To(ContainSubstring("echo existing-hook"))
 			Expect(string(hookContent)).To(ContainSubstring("# BEGIN line runner"))
-			Expect(string(hookContent)).To(ContainSubstring("line trigger"))
+			Expect(string(hookContent)).To(ContainSubstring("line run"))
 		})
 	})
 

@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("line run --once", func() {
+var _ = Describe("line run", func() {
 	var tmpDir string
 	var repoDir string
 	var configPath string
@@ -39,13 +39,13 @@ stations:
 	})
 
 	It("exits with code 0", func() {
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd := exec.Command(binaryPath, "run", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 	})
 
 	It("creates the output branch", func() {
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd := exec.Command(binaryPath, "run", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -55,7 +55,7 @@ stations:
 	})
 
 	It("creates a commit on the output branch with the station tag", func() {
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd := exec.Command(binaryPath, "run", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -65,7 +65,7 @@ stations:
 	})
 
 	It("includes the Triggered-By trailer", func() {
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd := exec.Command(binaryPath, "run", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -89,7 +89,7 @@ stations:
     watches: main
     prompt: "Review for security issues"
 `)
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", stdinConfigPath)
+		cmd := exec.Command(binaryPath, "run", "--path", stdinConfigPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -116,7 +116,7 @@ stations:
     watches: main
     prompt: "Review for security issues"
 `)
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", stdinConfigPath)
+		cmd := exec.Command(binaryPath, "run", "--path", stdinConfigPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -143,7 +143,7 @@ stations:
     watches: main
     prompt: "Review for security issues"
 `)
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", stdinConfigPath)
+		cmd := exec.Command(binaryPath, "run", "--path", stdinConfigPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -172,7 +172,7 @@ stations:
     prompt: "Review for security issues"
     preamble: "Per-station preamble for security reviews."
 `)
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", stdinConfigPath)
+		cmd := exec.Command(binaryPath, "run", "--path", stdinConfigPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -204,7 +204,7 @@ stations:
     watches: main
     prompt: "Review for security issues"
 `)
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", permConfigPath)
+		cmd := exec.Command(binaryPath, "run", "--path", permConfigPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -234,7 +234,7 @@ stations:
     watches: main
     prompt: "Review for security issues"
 `)
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", noPermConfigPath)
+		cmd := exec.Command(binaryPath, "run", "--path", noPermConfigPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -259,7 +259,7 @@ stations:
     watches: main
     prompt: "Check env"
 `)
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", envConfigPath)
+		cmd := exec.Command(binaryPath, "run", "--path", envConfigPath)
 		cmd.Env = append(os.Environ(), "CLAUDECODE=some-value")
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
@@ -272,14 +272,14 @@ stations:
 	})
 
 	It("is idempotent - running twice doesn't create duplicate commits", func() {
-		cmd1 := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd1 := exec.Command(binaryPath, "run", "--path", configPath)
 		out1, err := cmd1.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "first run: %s", string(out1))
 
 		// Get commit count after first run
 		count1 := runGitOutput(repoDir, "rev-list", "--count", "line/security")
 
-		cmd2 := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd2 := exec.Command(binaryPath, "run", "--path", configPath)
 		out2, err := cmd2.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "second run: %s", string(out2))
 

@@ -14,9 +14,9 @@ var configPath string
 var rootCmd = &cobra.Command{
 	Use:   "line",
 	Short: "Orchestrate coding agents in a station-based pipeline",
-	Long: `Assembly Line is a daemon that orchestrates coding agents through a line
-of stations. Each station focuses on a single quality aspect (security,
-style, documentation, etc.) and processes code changes in sequence.
+	Long: `Assembly Line orchestrates coding agents through a line of stations.
+Each station focuses on a single quality aspect (security, style,
+documentation, etc.) and processes code changes in sequence.
 
 Changes flow through the station line with Git providing the audit trail
 and intent preservation between agents.`,

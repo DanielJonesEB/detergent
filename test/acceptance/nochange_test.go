@@ -35,7 +35,7 @@ stations:
 	})
 
 	It("advances the output branch to match upstream via rebase", func() {
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd := exec.Command(binaryPath, "run", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -46,7 +46,7 @@ stations:
 	})
 
 	It("adds a git note with the review marker", func() {
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd := exec.Command(binaryPath, "run", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -71,7 +71,7 @@ stations:
     watches: main
     prompt: "Review for security issues"
 `)
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd := exec.Command(binaryPath, "run", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "first run: %s", string(output))
 
@@ -95,7 +95,7 @@ stations:
     watches: main
     prompt: "Review for security issues"
 `)
-		cmd = exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd = exec.Command(binaryPath, "run", "--path", configPath)
 		output, err = cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "second run: %s", string(output))
 
@@ -119,7 +119,7 @@ stations:
     watches: security
     prompt: "Update documentation"
 `)
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd := exec.Command(binaryPath, "run", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 

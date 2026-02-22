@@ -132,7 +132,7 @@ func IsProcessAlive(pid int) bool {
 // ResetActiveStatuses resets any station status that is in an active state
 // (change_detected, agent_running, committing) back to idle. This should be
 // called at the start of each processing cycle — any active status at that
-// point is stale from a previous run that was interrupted (e.g., daemon killed).
+// point is stale from a previous run that was interrupted (e.g., process killed).
 func ResetActiveStatuses(repoDir string, stationNames []string) {
 	pid := os.Getpid()
 	for _, name := range stationNames {

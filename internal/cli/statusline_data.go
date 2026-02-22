@@ -3,7 +3,6 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/re-cinq/assembly-line/internal/config"
 	"github.com/re-cinq/assembly-line/internal/engine"
@@ -35,9 +34,6 @@ type StatuslineOutput struct {
 	SourceBranch       string        `json:"source_branch"`
 	SourceCommit       string        `json:"source_commit,omitempty"`
 	Dirty              bool          `json:"dirty"`
-	RunnerAlive        bool          `json:"runner_alive"`
-	RunnerPID          int           `json:"runner_pid,omitempty"`
-	RunnerSince        string        `json:"runner_since,omitempty"`
 	Stations           []StationData `json:"stations"`
 	Roots              []string      `json:"roots"`
 	Graph              []GraphEdge   `json:"graph"`
@@ -156,24 +152,10 @@ func gatherStatuslineData(cfg *config.Config, repoDir string) StatuslineOutput {
 		dirty = d
 	}
 
-	// Runner status
-	runnerAlive := engine.IsRunnerAlive(repoDir)
-	runnerPID := 0
-	runnerSince := ""
-	if runnerAlive {
-		runnerPID = engine.ReadPID(repoDir)
-		if info, err := os.Stat(engine.PIDPath(repoDir)); err == nil {
-			runnerSince = info.ModTime().UTC().Format("2006-01-02T15:04:05Z")
-		}
-	}
-
 	return StatuslineOutput{
 		SourceBranch:       sourceBranch,
 		SourceCommit:       sourceCommit,
 		Dirty:              dirty,
-		RunnerAlive:        runnerAlive,
-		RunnerPID:          runnerPID,
-		RunnerSince:        runnerSince,
 		Stations:           stations,
 		Roots:              roots,
 		Graph:              graph,

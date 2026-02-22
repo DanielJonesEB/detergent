@@ -196,9 +196,9 @@ Tell the user: "Rebase aborted after too many conflict rounds. Your branch is re
 
 ---
 
-## Phase 8: Advance Daemon State (post-rebase)
+## Phase 8: Advance Runner State (post-rebase)
 
-After a successful rebase (not aborted), update the daemon's last-seen marker for the
+After a successful rebase (not aborted), update the runner's last-seen marker for the
 **first station** (the one that watches the main branch) so it doesn't re-process the
 agent commits that just landed on main.
 
@@ -215,8 +215,8 @@ agent commits that just landed on main.
     The first station is the one whose `watches` field matches the main branch (the branch
     you're currently on). This is the same station identified in Phase 1 as the root of the line.
 
-    This prevents the daemon from seeing the rebased agent commits as "new work" on the next
-    poll cycle. The engine also detects agent commits independently, but advancing last-seen
+    This prevents the runner from seeing the rebased agent commits as "new work" on the next
+    run. The engine also detects agent commits independently, but advancing last-seen
     is a belt-and-suspenders safeguard.
 
     **Skip this step** if the rebase was aborted — the branch is back to its pre-rebase state

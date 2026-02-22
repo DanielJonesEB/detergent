@@ -125,7 +125,7 @@ stations:
     watches: main
     prompt: "Security review"
 `)
-			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+			cmd := exec.Command(binaryPath, "run", "--path", configPath)
 			out, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "run failed: %s", string(out))
 		})
@@ -172,7 +172,7 @@ stations:
     prompt: "Security review"
 `)
 			// Run with "true" agent — sets idle state but no last_result
-			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+			cmd := exec.Command(binaryPath, "run", "--path", configPath)
 			out, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "run failed: %s", string(out))
 		})
@@ -201,7 +201,7 @@ stations:
     watches: main
     prompt: "Security review"
 `)
-			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+			cmd := exec.Command(binaryPath, "run", "--path", configPath)
 			out, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "run failed: %s", string(out))
 
@@ -235,7 +235,7 @@ stations:
     watches: main
     prompt: "Security review"
 `)
-			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+			cmd := exec.Command(binaryPath, "run", "--path", configPath)
 			out, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "run failed: %s", string(out))
 		})
@@ -274,7 +274,7 @@ stations:
     watches: main
     prompt: "Security review"
 `)
-			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+			cmd := exec.Command(binaryPath, "run", "--path", configPath)
 			out, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "run failed: %s", string(out))
 		})

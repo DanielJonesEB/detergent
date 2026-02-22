@@ -156,7 +156,7 @@ stations:
     watches: main
     prompt: "Security review"
 `)
-			cmd := exec.Command(binaryPath, "run", "--once", "--path", filepath.Join(repoDir, "line.yaml"))
+			cmd := exec.Command(binaryPath, "run", "--path", filepath.Join(repoDir, "line.yaml"))
 			out, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "run failed: %s", string(out))
 		})
@@ -184,7 +184,7 @@ stations:
     watches: main
     prompt: "Security review"
 `)
-			cmd := exec.Command(binaryPath, "run", "--once", "--path", filepath.Join(repoDir, "line.yaml"))
+			cmd := exec.Command(binaryPath, "run", "--path", filepath.Join(repoDir, "line.yaml"))
 			out, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "run failed: %s", string(out))
 		})
@@ -211,7 +211,7 @@ stations:
     watches: main
     prompt: "Security review"
 `)
-			cmd := exec.Command(binaryPath, "run", "--once", "--path", filepath.Join(repoDir, "line.yaml"))
+			cmd := exec.Command(binaryPath, "run", "--path", filepath.Join(repoDir, "line.yaml"))
 			out, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "run failed: %s", string(out))
 

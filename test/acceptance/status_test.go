@@ -34,15 +34,6 @@ stations:
 		cleanupTestRepo(repoDir, tmpDir)
 	})
 
-	Context("runner status", func() {
-		It("shows runner as not running when no runner is alive", func() {
-			cmd := exec.Command(binaryPath, "status", "--path", configPath)
-			output, err := cmd.CombinedOutput()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(output)).To(ContainSubstring("inactive"))
-		})
-	})
-
 	Context("before any run", func() {
 		It("shows stations as pending", func() {
 			cmd := exec.Command(binaryPath, "status", "--path", configPath)
@@ -78,7 +69,7 @@ stations:
 
 	Context("after a successful run", func() {
 		BeforeEach(func() {
-			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+			cmd := exec.Command(binaryPath, "run", "--path", configPath)
 			out, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "run failed: %s", string(out))
 		})
@@ -134,7 +125,7 @@ stations:
     watches: main
     prompt: "This will fail"
 `)
-			cmd := exec.Command(binaryPath, "run", "--once", "--path", failConfigPath)
+			cmd := exec.Command(binaryPath, "run", "--path", failConfigPath)
 			cmd.CombinedOutput() // ignore exit code
 
 			cmd2 := exec.Command(binaryPath, "status", "--path", failConfigPath)

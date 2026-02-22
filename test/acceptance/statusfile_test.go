@@ -55,7 +55,7 @@ stations:
     watches: main
     prompt: "Review for security issues"
 `)
-			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+			cmd := exec.Command(binaryPath, "run", "--path", configPath)
 			out, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "run failed: %s", string(out))
 		})
@@ -83,7 +83,7 @@ stations:
     watches: main
     prompt: "Check style"
 `)
-			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+			cmd := exec.Command(binaryPath, "run", "--path", configPath)
 			out, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "run failed: %s", string(out))
 		})
@@ -109,12 +109,12 @@ stations:
     prompt: "Review"
 `)
 			// First run processes
-			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+			cmd := exec.Command(binaryPath, "run", "--path", configPath)
 			out, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "first run: %s", string(out))
 
 			// Second run should be idle (nothing new)
-			cmd2 := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+			cmd2 := exec.Command(binaryPath, "run", "--path", configPath)
 			out2, err := cmd2.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "second run: %s", string(out2))
 		})
@@ -141,7 +141,7 @@ stations:
     watches: security
     prompt: "This should be skipped"
 `)
-			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+			cmd := exec.Command(binaryPath, "run", "--path", configPath)
 			cmd.CombinedOutput() // ignore exit code; station failures are logged but don't stop the run
 		})
 

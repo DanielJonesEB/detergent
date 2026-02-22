@@ -41,7 +41,7 @@ stations:
 
 	It("does not re-trigger after rebasing main onto the terminal branch", func() {
 		// Run the line once to process the initial commit
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd := exec.Command(binaryPath, "run", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "first run: %s", string(output))
 
@@ -54,7 +54,7 @@ stations:
 		runGit(repoDir, "rebase", "line/docs")
 
 		// Run the line again — should detect agent commits and skip
-		cmd2 := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd2 := exec.Command(binaryPath, "run", "--path", configPath)
 		output2, err := cmd2.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "second run: %s", string(output2))
 
@@ -81,7 +81,7 @@ stations:
 
 		// Run the stations — the agent will commit directly, but line should
 		// soft-reset that commit and create its own with Triggered-By.
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", commitConfigPath)
+		cmd := exec.Command(binaryPath, "run", "--path", commitConfigPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "run: %s", string(output))
 
@@ -105,7 +105,7 @@ stations:
 
 		secCount1 := strings.TrimSpace(runGitOutput(repoDir, "rev-list", "--count", "line/security"))
 
-		cmd2 := exec.Command(binaryPath, "run", "--once", "--path", commitConfigPath)
+		cmd2 := exec.Command(binaryPath, "run", "--path", commitConfigPath)
 		output2, err := cmd2.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "second run: %s", string(output2))
 
@@ -115,7 +115,7 @@ stations:
 
 	It("processes only user commits after rebase + new user commit", func() {
 		// Run the line once
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd := exec.Command(binaryPath, "run", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "first run: %s", string(output))
 
@@ -154,7 +154,7 @@ stations:
 `)
 
 		// Run with the capturing agent
-		cmd2 := exec.Command(binaryPath, "run", "--once", "--path", captureConfigPath)
+		cmd2 := exec.Command(binaryPath, "run", "--path", captureConfigPath)
 		output2, err := cmd2.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "second run: %s", string(output2))
 

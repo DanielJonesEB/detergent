@@ -38,8 +38,8 @@ stations:
 		cleanupTestRepo(repoDir, tmpDir)
 	})
 
-	It("processes both stations in order after a single run --once", func() {
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+	It("processes both stations in order after a single run", func() {
+		cmd := exec.Command(binaryPath, "run", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -50,7 +50,7 @@ stations:
 	})
 
 	It("creates commits on the downstream branch with station tags", func() {
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd := exec.Command(binaryPath, "run", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -64,7 +64,7 @@ stations:
 	})
 
 	It("includes upstream commit info in the downstream context", func() {
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd := exec.Command(binaryPath, "run", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 

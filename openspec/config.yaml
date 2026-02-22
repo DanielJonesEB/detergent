@@ -4,10 +4,10 @@ schema: spec-driven
 # This is shown to AI when creating artifacts.
 context: |
   ## Purpose
-  Assembly Line is a daemon that orchestrates coding agents in a station-based pipeline. Each agent focuses on a single quality station (security, deduplication, style, etc.). Changes flow through a directed graph of stations, with Git providing the audit trail and intent preservation.
+  Assembly Line is a runner that orchestrates coding agents in a station-based pipeline. Each agent focuses on a single quality station (security, deduplication, style, etc.). Changes flow through a directed graph of stations, with Git providing the audit trail and intent preservation.
 
   ## Tech Stack
-  - Go (daemon implementation)
+  - Go (runner implementation)
   - Git (version control, worktrees, notes)
   - YAML (configuration)
   - Claude Code CLI (default agent, configurable)

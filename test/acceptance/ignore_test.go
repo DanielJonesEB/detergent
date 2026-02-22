@@ -43,7 +43,7 @@ stations:
 		configPath := configFor(repoDir)
 
 		// First run to establish baseline
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd := exec.Command(binaryPath, "run", "--path", configPath)
 		out, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "first run: %s", string(out))
 
@@ -55,7 +55,7 @@ stations:
 		runGit(repoDir, "add", ".lineignore")
 		runGit(repoDir, "commit", "-m", "add lineignore")
 
-		cmd = exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd = exec.Command(binaryPath, "run", "--path", configPath)
 		out, err = cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "second run: %s", string(out))
 
@@ -67,7 +67,7 @@ stations:
 		runGit(repoDir, "add", ".beads/issues.jsonl")
 		runGit(repoDir, "commit", "-m", "update beads metadata")
 
-		cmd = exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd = exec.Command(binaryPath, "run", "--path", configPath)
 		out, err = cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "third run: %s", string(out))
 
@@ -80,7 +80,7 @@ stations:
 		configPath := configFor(repoDir)
 
 		// First run to establish baseline
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd := exec.Command(binaryPath, "run", "--path", configPath)
 		out, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "first run: %s", string(out))
 
@@ -89,7 +89,7 @@ stations:
 		runGit(repoDir, "add", ".lineignore")
 		runGit(repoDir, "commit", "-m", "add lineignore")
 
-		cmd = exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd = exec.Command(binaryPath, "run", "--path", configPath)
 		out, err = cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "second run: %s", string(out))
 
@@ -101,7 +101,7 @@ stations:
 		runGit(repoDir, "add", "docs/guide.md", "main.go")
 		runGit(repoDir, "commit", "-m", "add guide and main")
 
-		cmd = exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd = exec.Command(binaryPath, "run", "--path", configPath)
 		out, err = cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "third run: %s", string(out))
 
@@ -118,7 +118,7 @@ stations:
 		runGit(repoDir, "commit", "-m", "add lineignore")
 
 		// First run to establish baseline
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd := exec.Command(binaryPath, "run", "--path", configPath)
 		out, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "first run: %s", string(out))
 
@@ -129,7 +129,7 @@ stations:
 		runGit(repoDir, "add", ".lineignore")
 		runGit(repoDir, "commit", "-m", "update lineignore")
 
-		cmd = exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd = exec.Command(binaryPath, "run", "--path", configPath)
 		out, err = cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "second run: %s", string(out))
 
@@ -141,7 +141,7 @@ stations:
 		configPath := configFor(repoDir)
 
 		// First run
-		cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd := exec.Command(binaryPath, "run", "--path", configPath)
 		out, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "first run: %s", string(out))
 
@@ -152,7 +152,7 @@ stations:
 		runGit(repoDir, "add", "docs/guide.md")
 		runGit(repoDir, "commit", "-m", "add docs")
 
-		cmd = exec.Command(binaryPath, "run", "--once", "--path", configPath)
+		cmd = exec.Command(binaryPath, "run", "--path", configPath)
 		out, err = cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "second run: %s", string(out))
 

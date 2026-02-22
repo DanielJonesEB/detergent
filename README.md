@@ -16,7 +16,7 @@ Then, in your repo:
 
 ```bash
 line init # Set up skills
-line run # Start the daemon (there's a skill for this too)
+line run # Process pending commits
 line status # See what's going on
 line status -f -n 1 # Follow the status, refreshing every 1 second
 ```
@@ -109,10 +109,7 @@ line gate
 # Validate your config (defaults to line.yaml)
 line validate
 
-# Run once and exit
-line run --once
-
-# Run as daemon (polls for changes)
+# Process pending commits
 line run
 
 # Check status of each station
@@ -156,8 +153,6 @@ Agent work accumulates on station branches (`line/security`, `line/style`, etc.)
 
 If anything goes wrong: `git reset --hard pre-rebase-backup`
 
-**Note:** When running as a daemon, line automatically reloads `line.yaml` at the start of each poll cycle. Config changes take effect immediately without requiring a restart.
-
 **Resilience:** On startup, line checks for and auto-repairs `core.bare=true` git config corruption (a known VS Code / concurrent-write race condition). If detected, it silently repairs the config so commands continue to work without manual intervention.
 
 ## Claude Code Integration
@@ -169,7 +164,7 @@ If anything goes wrong: `git reset --hard pre-rebase-backup`
   main ─── security ✓ ── docs ⟳ ── style ·
   ```
   - When on a terminal station branch that's behind HEAD, displays a bold yellow warning: `⚠ use /line-rebase to pick up latest changes`
-- **Skills** — adds `/line-start` to start the daemon as a background task and `/line-rebase` for rebasing station branch changes onto their upstream
+- **Skills** — adds `/line-start` to run pending commits and `/line-rebase` for rebasing station branch changes onto their upstream
 - **Pre-commit hook** — if `gates` are configured, installs (or injects into an existing) `.git/hooks/pre-commit` that runs `line gate` before every commit
 
 ### Statusline Symbols

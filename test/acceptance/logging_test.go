@@ -32,7 +32,7 @@ var _ = Describe("agent output logging", func() {
 		os.Remove(filepath.Join(os.TempDir(), "line-style.log"))
 	})
 
-	Describe("run --once", func() {
+	Describe("run", func() {
 		It("writes agent output to log file, not terminal", func() {
 			configPath = filepath.Join(repoDir, "line.yaml")
 			writeFile(configPath, `
@@ -49,7 +49,7 @@ stations:
     prompt: "Review for security issues"
 `)
 
-			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+			cmd := exec.Command(binaryPath, "run", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -83,7 +83,7 @@ stations:
 `)
 
 			// Set env var so agent can report which station it's running for
-			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+			cmd := exec.Command(binaryPath, "run", "--path", configPath)
 			cmd.Env = append(os.Environ(), "LINE_STATION=test")
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
@@ -118,7 +118,7 @@ stations:
 			// Get the commit hash we'll be processing
 			commitHash := strings.TrimSpace(runGitOutput(repoDir, "rev-parse", "HEAD"))
 
-			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+			cmd := exec.Command(binaryPath, "run", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -148,7 +148,7 @@ stations:
     prompt: "Review"
 `)
 
-			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+			cmd := exec.Command(binaryPath, "run", "--path", configPath)
 			output, err := cmd.CombinedOutput()
 			Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 
@@ -185,7 +185,7 @@ stations:
 
 			logPath := filepath.Join(os.TempDir(), "line-security.log")
 
-			cmd := exec.Command(binaryPath, "run", "--once", "--path", configPath)
+			cmd := exec.Command(binaryPath, "run", "--path", configPath)
 			err := cmd.Start()
 			Expect(err).NotTo(HaveOccurred())
 			defer cmd.Process.Kill()
@@ -208,54 +208,4 @@ stations:
 		})
 	})
 
-	Describe("daemon mode", func() {
-		It("shows daemon messages on terminal but not agent output", func() {
-			configPath = filepath.Join(repoDir, "line.yaml")
-			writeFile(configPath, `
-agent:
-  command: "sh"
-  args: ["-c", "echo 'AGENT_SECRET_OUTPUT' && touch reviewed.txt"]
-
-settings:
-  branch_prefix: "line/"
-
-stations:
-  - name: security
-    watches: main
-    prompt: "Review"
-`)
-
-			logPath := filepath.Join(os.TempDir(), "line-security.log")
-
-			cmd := exec.Command(binaryPath, "run", "--path", configPath)
-			cmd.Dir = repoDir
-			var outputBuf strings.Builder
-			cmd.Stdout = &outputBuf
-			cmd.Stderr = &outputBuf
-
-			err := cmd.Start()
-			Expect(err).NotTo(HaveOccurred())
-
-			// Wait for processing
-			time.Sleep(2 * time.Second)
-
-			// Send SIGINT
-			cmd.Process.Signal(syscall.SIGINT)
-			cmd.Wait()
-
-			terminalOutput := outputBuf.String()
-
-			// Runner messages should appear on terminal
-			Expect(terminalOutput).To(ContainSubstring("runner started"))
-			Expect(terminalOutput).To(ContainSubstring("Agent logs:"))
-
-			// Agent output should NOT appear on terminal
-			Expect(terminalOutput).NotTo(ContainSubstring("AGENT_SECRET_OUTPUT"))
-
-			// Agent output SHOULD appear in log file
-			logContent, err := os.ReadFile(logPath)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(logContent)).To(ContainSubstring("AGENT_SECRET_OUTPUT"))
-		})
-	})
 })
