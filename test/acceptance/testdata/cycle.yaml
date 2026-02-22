@@ -1,0 +1,10 @@
+agent:
+  command: "echo"
+
+stations:
+  - name: alpha
+    watches: beta
+    prompt: "check alpha"
+  - name: beta
+    watches: alpha
+    prompt: "check beta"

@@ -2,12 +2,12 @@ package git
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/re-cinq/assembly-line/internal/env"
 	"github.com/re-cinq/assembly-line/internal/fileutil"
 )
 
@@ -65,21 +65,7 @@ var sleepFunc = time.Sleep
 // git processes discover the repository from cmd.Dir rather than inheriting
 // a potentially wrong GIT_DIR from a hook environment.
 func cleanEnv() []string {
-	env := os.Environ()
-	result := make([]string, 0, len(env))
-	for _, e := range env {
-		skip := false
-		for _, prefix := range gitEnvPrefixes {
-			if strings.HasPrefix(e, prefix) {
-				skip = true
-				break
-			}
-		}
-		if !skip {
-			result = append(result, e)
-		}
-	}
-	return result
+	return env.FilterByPrefixes(gitEnvPrefixes...)
 }
 
 // run executes a git command in the repo directory.

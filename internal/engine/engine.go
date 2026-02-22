@@ -16,6 +16,7 @@ import (
 	ignore "github.com/sabhiram/go-gitignore"
 
 	"github.com/re-cinq/assembly-line/internal/config"
+	envutil "github.com/re-cinq/assembly-line/internal/env"
 	"github.com/re-cinq/assembly-line/internal/fileutil"
 	gitops "github.com/re-cinq/assembly-line/internal/git"
 )
@@ -152,11 +153,30 @@ func RunOnceWithLogs(cfg *config.Config, repoDir string, logMgr *LogManager) err
 	repo := gitops.NewRepo(repoDir)
 	repo.EnsureIdentity()
 
+	levels := topologicalLevels(cfg)
 	failed := &failedSet{m: make(map[string]bool)}
 
-	for _, c := range cfg.Stations {
-		if !shouldSkipStation(repoDir, c, failed) {
-			processStationAndTrackFailure(cfg, repo, repoDir, c, logMgr, failed)
+	for _, level := range levels {
+		if len(level) == 1 {
+			// Single station: run directly (no goroutine overhead)
+			c := level[0]
+			if !shouldSkipStation(repoDir, c, failed) {
+				processStationAndTrackFailure(cfg, repo, repoDir, c, logMgr, failed)
+			}
+		} else {
+			// Multiple independent stations: run in parallel
+			var wg sync.WaitGroup
+			for _, c := range level {
+				if shouldSkipStation(repoDir, c, failed) {
+					continue
+				}
+				wg.Add(1)
+				go func(station config.Station) {
+					defer wg.Done()
+					processStationAndTrackFailure(cfg, repo, repoDir, station, logMgr, failed)
+				}(c)
+			}
+			wg.Wait()
 		}
 	}
 	return nil
@@ -545,20 +565,7 @@ func assembleContext(repo *gitops.Repo, cfg *config.Config, station config.Stati
 // given prefixes removed. Prefixes should include the '=' suffix for exact matching
 // (e.g., "CLAUDECODE=", not "CLAUDECODE").
 func FilterEnv(excludePrefixes ...string) []string {
-	result := make([]string, 0, len(os.Environ()))
-	for _, e := range os.Environ() {
-		skip := false
-		for _, prefix := range excludePrefixes {
-			if strings.HasPrefix(e, prefix) {
-				skip = true
-				break
-			}
-		}
-		if !skip {
-			result = append(result, e)
-		}
-	}
-	return result
+	return envutil.FilterByPrefixes(excludePrefixes...)
 }
 
 func invokeAgent(cfg *config.Config, station config.Station, worktreeDir, context string, output io.Writer) error {
@@ -775,3 +782,47 @@ func WatchesExternalBranch(cfg *config.Config, station config.Station) bool {
 	return !cfg.HasStation(station.Watches)
 }
 
+// topologicalLevels groups stations into levels for parallel execution.
+// Level 0 = roots (watch external branches), Level 1 = depends only on level 0, etc.
+func topologicalLevels(cfg *config.Config) [][]config.Station {
+	nameSet := cfg.BuildNameSet()
+
+	byName := make(map[string]config.Station)
+	for _, c := range cfg.Stations {
+		byName[c.Name] = c
+	}
+
+	// Compute level for each station
+	levels := make(map[string]int)
+	var computeLevel func(name string) int
+	computeLevel = func(name string) int {
+		if l, ok := levels[name]; ok {
+			return l
+		}
+		c := byName[name]
+		if !nameSet[c.Watches] {
+			levels[name] = 0
+			return 0
+		}
+		l := computeLevel(c.Watches) + 1
+		levels[name] = l
+		return l
+	}
+
+	maxLevel := 0
+	for _, c := range cfg.Stations {
+		l := computeLevel(c.Name)
+		if l > maxLevel {
+			maxLevel = l
+		}
+	}
+
+	// Group by level
+	result := make([][]config.Station, maxLevel+1)
+	for _, c := range cfg.Stations {
+		l := levels[c.Name]
+		result[l] = append(result[l], c)
+	}
+
+	return result
+}

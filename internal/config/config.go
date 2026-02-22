@@ -86,13 +86,16 @@ func parse(data []byte) (*Config, error) {
 		cfg.Settings.Watches = "main"
 	}
 
-	// Populate Watches from position: first station watches settings.watches,
-	// each subsequent station watches the previous one.
+	// Auto-populate Watches for stations defined as an ordered list.
+	// First station watches settings.watches; each subsequent station
+	// watches the previous one. Explicit watches values take precedence.
 	for i := range cfg.Stations {
-		if i == 0 {
-			cfg.Stations[i].Watches = cfg.Settings.Watches
-		} else {
-			cfg.Stations[i].Watches = cfg.Stations[i-1].Name
+		if cfg.Stations[i].Watches == "" {
+			if i == 0 {
+				cfg.Stations[i].Watches = cfg.Settings.Watches
+			} else {
+				cfg.Stations[i].Watches = cfg.Stations[i-1].Name
+			}
 		}
 	}
 
@@ -125,6 +128,10 @@ func Validate(cfg *Config) []error {
 		}
 	}
 
+	if cycleErr := detectCycles(cfg.Stations); cycleErr != nil {
+		errs = append(errs, cycleErr)
+	}
+
 	errs = append(errs, ValidateGates(cfg.Gates)...)
 
 	return errs
@@ -150,6 +157,59 @@ func ValidateGates(gates []Gate) []error {
 	return errs
 }
 
+func detectCycles(stations []Station) error {
+	// Build adjacency: station name -> what it watches (if that's also a station)
+	nameSet := make(map[string]bool)
+	for _, c := range stations {
+		nameSet[c.Name] = true
+	}
+
+	// Graph edges: watches -> name (station depends on what it watches)
+	// For cycle detection we need: name -> []downstream
+	// Actually: if A watches B, then A depends on B. Edge: A -> B.
+	adj := make(map[string][]string)
+	for _, c := range stations {
+		if nameSet[c.Watches] {
+			adj[c.Name] = append(adj[c.Name], c.Watches)
+		}
+	}
+
+	// DFS-based cycle detection
+	const (
+		white = 0 // unvisited
+		gray  = 1 // in current path
+		black = 2 // done
+	)
+	color := make(map[string]int)
+
+	var visit func(node string) error
+	visit = func(node string) error {
+		color[node] = gray
+		for _, dep := range adj[node] {
+			if color[dep] == gray {
+				return fmt.Errorf("cycle detected: %s -> %s", node, dep)
+			}
+			if color[dep] == white {
+				if err := visit(dep); err != nil {
+					return err
+				}
+			}
+		}
+		color[node] = black
+		return nil
+	}
+
+	for _, c := range stations {
+		if color[c.Name] == white {
+			if err := visit(c.Name); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 // HasStation returns true if a station with the given name exists in the config.
 func (cfg *Config) HasStation(name string) bool {
 	for _, c := range cfg.Stations {
@@ -168,3 +228,24 @@ func (cfg *Config) ValidateStationName(name string) error {
 	return nil
 }
 
+// BuildNameSet returns a set of all station names in the config.
+func (cfg *Config) BuildNameSet() map[string]bool {
+	nameSet := make(map[string]bool, len(cfg.Stations))
+	for _, c := range cfg.Stations {
+		nameSet[c.Name] = true
+	}
+	return nameSet
+}
+
+// FindRoots returns the names of stations that watch external branches
+// (not other stations in the line).
+func (cfg *Config) FindRoots() []string {
+	nameSet := cfg.BuildNameSet()
+	var roots []string
+	for _, c := range cfg.Stations {
+		if !nameSet[c.Watches] {
+			roots = append(roots, c.Name)
+		}
+	}
+	return roots
+}

@@ -13,6 +13,8 @@ import (
 
 type statuslineOutput struct {
 	Stations           []statuslineStation `json:"stations"`
+	Roots              []string            `json:"roots"`
+	Graph              []graphEdge         `json:"graph"`
 	HasUnpickedCommits bool                `json:"has_unpicked_commits"`
 }
 
@@ -24,6 +26,11 @@ type statuslineStation struct {
 	HeadCommit string `json:"head_commit,omitempty"`
 	Error      string `json:"error,omitempty"`
 	BehindHead bool   `json:"behind_head"`
+}
+
+type graphEdge struct {
+	From string `json:"from"`
+	To   string `json:"to"`
 }
 
 var _ = Describe("line statusline-data", func() {
@@ -49,10 +56,13 @@ agent:
 
 stations:
   - name: security
+    watches: main
     prompt: "Security review"
   - name: docs
+    watches: security
     prompt: "Docs review"
   - name: style
+    watches: main
     prompt: "Style review"
 `)
 		})
@@ -65,6 +75,28 @@ stations:
 			var result statuslineOutput
 			Expect(json.Unmarshal(output, &result)).To(Succeed())
 			Expect(result.Stations).To(HaveLen(3))
+		})
+
+		It("identifies root stations correctly", func() {
+			cmd := exec.Command(binaryPath, "statusline-data", "--path", configPath)
+			output, err := cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred())
+
+			var result statuslineOutput
+			Expect(json.Unmarshal(output, &result)).To(Succeed())
+			Expect(result.Roots).To(ConsistOf("security", "style"))
+		})
+
+		It("includes graph edges", func() {
+			cmd := exec.Command(binaryPath, "statusline-data", "--path", configPath)
+			output, err := cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred())
+
+			var result statuslineOutput
+			Expect(json.Unmarshal(output, &result)).To(Succeed())
+			Expect(result.Graph).To(HaveLen(1))
+			Expect(result.Graph[0].From).To(Equal("security"))
+			Expect(result.Graph[0].To).To(Equal("docs"))
 		})
 
 		It("shows unknown state for never-processed stations", func() {

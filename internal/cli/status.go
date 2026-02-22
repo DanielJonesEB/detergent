@@ -75,6 +75,7 @@ func followStatus(cfg *config.Config, repoDir string) error {
 		}
 		output = strings.Join(lines, "\n")
 
+		fmt.Printf("Every %.1fs: line status\033[K\n\033[K\n", statusInterval)
 		fmt.Print(output)
 		// Clear from cursor to end of screen to remove stale lines
 		fmt.Print("\033[J")
