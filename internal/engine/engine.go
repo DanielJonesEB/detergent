@@ -103,7 +103,19 @@ func (lm *LogManager) Close() error {
 // Independent stations at the same level run in parallel.
 // Individual station failures are logged but don't stop other stations.
 // Creates a temporary LogManager that is closed after processing.
+// Acquires a cross-process file lock so concurrent invocations (e.g. from
+// rapid post-commit hooks) don't race on the same worktrees.
 func RunOnce(cfg *config.Config, repoDir string) error {
+	unlock, err := AcquireRunLock(repoDir)
+	if err != nil {
+		if IsLockHeld(err) {
+			fileutil.LogError("skipping: another line run is already in progress")
+			return nil // not an error — just skip
+		}
+		return fmt.Errorf("acquiring run lock: %w", err)
+	}
+	defer unlock()
+
 	logMgr := NewLogManager()
 	defer logMgr.Close()
 	return RunOnceWithLogs(cfg, repoDir, logMgr)

@@ -10,6 +10,44 @@ import (
 	"time"
 )
 
+func TestRunSanitizesGitEnvVars(t *testing.T) {
+	// If GIT_DIR or GIT_WORK_TREE leak into child git processes
+	// (e.g. inherited from a post-commit hook), worktree operations
+	// can target the wrong repository or fail with ENOTDIR.
+	dir := t.TempDir()
+	cmd := exec.Command("git", "init", dir)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git init: %s: %v", out, err)
+	}
+	// Write a file and commit so rev-parse HEAD works
+	if err := os.WriteFile(filepath.Join(dir, "f.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	execCmd := exec.Command("git", "add", ".")
+	execCmd.Dir = dir
+	execCmd.Run()
+	execCmd = exec.Command("git", "commit", "-m", "init", "--no-gpg-sign")
+	execCmd.Dir = dir
+	execCmd.Env = append(os.Environ(),
+		"GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=t@t",
+		"GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=t@t",
+	)
+	execCmd.Run()
+
+	// Poison the environment with GIT_DIR pointing to a bogus location.
+	// If run() doesn't sanitize these, the child git process will fail.
+	t.Setenv("GIT_DIR", "/nonexistent/bogus/.git")
+	t.Setenv("GIT_WORK_TREE", "/nonexistent/bogus")
+	t.Setenv("GIT_INDEX_FILE", "/nonexistent/bogus/index")
+
+	repo := NewRepo(dir)
+	// This should succeed because run() strips the poisoned env vars.
+	_, err := repo.run("rev-parse", "HEAD")
+	if err != nil {
+		t.Fatalf("run() should sanitize GIT_DIR/GIT_WORK_TREE but got error: %v", err)
+	}
+}
+
 func TestIsTransient(t *testing.T) {
 	tests := []struct {
 		name string

@@ -272,4 +272,27 @@ stations:
 			Expect(os.IsNotExist(err)).To(BeTrue(), "hook should not exist when no stations")
 		})
 	})
+
+	Context("LINE_AGENT guard", func() {
+		BeforeEach(func() {
+			writeFile(filepath.Join(repoDir, "line.yaml"), `agent:
+  command: "echo"
+
+stations:
+  - name: security
+    prompt: "check"
+`)
+		})
+
+		It("includes a LINE_AGENT check so agent commits don't re-trigger", func() {
+			cmd := exec.Command(binaryPath, "init", repoDir, "--path", filepath.Join(repoDir, "line.yaml"))
+			output, err := cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), "init failed: %s", string(output))
+
+			hookContent, err := os.ReadFile(filepath.Join(repoDir, ".git", "hooks", "post-commit"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(hookContent)).To(ContainSubstring("LINE_AGENT"),
+				"post-commit hook should check LINE_AGENT to prevent re-triggering from agent commits")
+		})
+	})
 })

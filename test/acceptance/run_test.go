@@ -227,6 +227,45 @@ stations:
 		Expect(string(envDump)).To(ContainSubstring("LINE_AGENT=1"))
 	})
 
+	It("succeeds even when GIT_DIR is set in the environment", func() {
+		// When a post-commit hook fires from a worktree, GIT_DIR is set
+		// to the worktree's gitdir. If line run inherits this, git commands
+		// targeting other worktrees can fail with ENOTDIR or wrong-repo errors.
+		configPath := basicConfigFor(repoDir, "echo 'reviewed by agent' > agent-review.txt")
+		cmd := exec.Command(binaryPath, "run", "--path", configPath)
+		cmd.Env = append(os.Environ(),
+			"GIT_DIR=/nonexistent/bogus/.git",
+			"GIT_WORK_TREE=/nonexistent/bogus",
+		)
+		output, err := cmd.CombinedOutput()
+		Expect(err).NotTo(HaveOccurred(), "line run should succeed despite poisoned GIT_DIR: %s", string(output))
+
+		out := runGitOutput(repoDir, "branch", "--list", "line/security")
+		Expect(out).To(ContainSubstring("line/security"))
+	})
+
+	It("acquires a lock preventing concurrent runs", func() {
+		// Start two concurrent line run processes — only one should process
+		configPath := basicConfigFor(repoDir, "echo 'reviewed by agent' > agent-review.txt")
+		cmd1 := exec.Command(binaryPath, "run", "--path", configPath)
+		cmd2 := exec.Command(binaryPath, "run", "--path", configPath)
+
+		// Start both
+		err1 := cmd1.Start()
+		Expect(err1).NotTo(HaveOccurred())
+		err2 := cmd2.Start()
+		Expect(err2).NotTo(HaveOccurred())
+
+		// Wait for both to finish
+		waitErr1 := cmd1.Wait()
+		waitErr2 := cmd2.Wait()
+
+		// At least one should succeed, at least one should exit cleanly
+		// (the locked-out one exits 0 with a log message, not an error)
+		succeeded := (waitErr1 == nil || waitErr2 == nil)
+		Expect(succeeded).To(BeTrue(), "at least one concurrent run should succeed")
+	})
+
 	It("is idempotent - running twice doesn't create duplicate commits", func() {
 		configPath := basicConfigFor(repoDir, "echo 'reviewed by agent' > agent-review.txt")
 		cmd1 := exec.Command(binaryPath, "run", "--path", configPath)

@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -9,6 +10,18 @@ import (
 
 	"github.com/re-cinq/assembly-line/internal/fileutil"
 )
+
+// gitEnvPrefixes are environment variable prefixes that must be stripped from
+// child git processes. When line run is spawned by a post-commit hook,
+// git sets GIT_DIR in the hook environment. If inherited, child git commands
+// target the wrong repository/worktree, causing ENOTDIR or corrupt operations.
+var gitEnvPrefixes = []string{
+	"GIT_DIR=",
+	"GIT_WORK_TREE=",
+	"GIT_INDEX_FILE=",
+	"GIT_OBJECT_DIRECTORY=",
+	"GIT_ALTERNATE_OBJECT_DIRECTORIES=",
+}
 
 // Retry constants for transient git errors.
 const (
@@ -48,13 +61,38 @@ func NewRepo(dir string) *Repo {
 // Replaced in tests to avoid real delays.
 var sleepFunc = time.Sleep
 
+// cleanEnv returns os.Environ() with git-specific variables removed so child
+// git processes discover the repository from cmd.Dir rather than inheriting
+// a potentially wrong GIT_DIR from a hook environment.
+func cleanEnv() []string {
+	env := os.Environ()
+	result := make([]string, 0, len(env))
+	for _, e := range env {
+		skip := false
+		for _, prefix := range gitEnvPrefixes {
+			if strings.HasPrefix(e, prefix) {
+				skip = true
+				break
+			}
+		}
+		if !skip {
+			result = append(result, e)
+		}
+	}
+	return result
+}
+
 // run executes a git command in the repo directory.
 // Transient errors (index locks, ref locks) are retried with exponential backoff.
+// Git-specific environment variables (GIT_DIR, GIT_WORK_TREE, etc.) are stripped
+// so commands discover the repository from cmd.Dir, preventing misrouted operations
+// when line run is spawned from a post-commit hook with inherited GIT_DIR.
 func (r *Repo) run(args ...string) (string, error) {
 	delay := retryInitialDelay
 	for attempt := 0; attempt < retryMaxAttempts; attempt++ {
 		cmd := exec.Command("git", args...)
 		cmd.Dir = r.Dir
+		cmd.Env = cleanEnv()
 		out, err := cmd.CombinedOutput()
 		if err == nil {
 			return strings.TrimSpace(string(out)), nil

@@ -156,7 +156,7 @@ fi
 # END line gate`
 	runnerBeginMarker = "# BEGIN line runner"
 	runnerBlock       = `# BEGIN line runner
-if command -v line >/dev/null 2>&1; then
+if [ -z "$LINE_AGENT" ] && command -v line >/dev/null 2>&1; then
     line run >/dev/null 2>&1 &
 fi
 # END line runner`
