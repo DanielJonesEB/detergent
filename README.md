@@ -1,6 +1,6 @@
 # Assembly Line
 
-Deterministic agent invocation. Define a line of agent calls that will get invoked, in sequence, on every commit. Get alerted via the Claude Code statusline when downstream agents make changes, and use the `/line-rebase` skill to automatically pull them in.
+Deterministic agent invocation. Define a pipeline of agent calls that will get invoked on every commit — in sequence or in parallel, depending on their dependencies. Get alerted via the Claude Code statusline when downstream agents make changes, and use the `/line-rebase` skill to automatically pull them in.
 
 Kinda like CI, but local.
 
@@ -45,7 +45,25 @@ stations:
     prompt: "Fix any code style issues."
 ```
 
-Stations are processed as an ordered line: each station watches the one before it, and the first station watches the branch specified in `settings.watches` (defaults to `main`). Individual stations can override the global `command` and `args` to use a different agent or model (as shown with `docs` above).
+By default, stations are processed as an ordered line: each station watches the one before it, and the first station watches the branch specified in `settings.watches` (defaults to `main`). Individual stations can override the global `command` and `args` to use a different agent or model (as shown with `docs` above).
+
+Stations can also set an explicit `watches` field to create non-linear pipelines. Stations at the same level of the dependency graph run in parallel:
+
+```yaml
+stations:
+  - name: security
+    prompt: "Review for security vulnerabilities."
+
+  - name: docs
+    watches: main        # watches main directly, runs in parallel with security
+    prompt: "Ensure public functions have clear documentation."
+
+  - name: style
+    watches: security    # runs after security, in parallel with docs
+    prompt: "Fix any code style issues."
+```
+
+`line validate` checks the config for cycles and other errors.
 
 ### Gates (Pre-commit Checks)
 
@@ -139,7 +157,9 @@ line init
 4. Agent changes are committed with `[STATION]` tags and `Triggered-By:` trailers (pre-commit hooks are skipped — no agent is present after the runner exits)
 5. If no changes needed, a git note records the review
 6. Downstream stations see upstream commits and can build on them
-7. The statusline shows `✓` next to stations that are up to date — use `/line-rebase` to pull them back into your working branch
+7. Stations at the same dependency level run in parallel; stations that depend on others run after them
+8. If `line run` is triggered while another run is already in progress (e.g. from rapid back-to-back commits), the second invocation silently skips — no races
+9. The statusline shows `✓` next to stations that are up to date — use `/line-rebase` to pull them back into your working branch
 
 ### Getting changes back
 
@@ -159,9 +179,13 @@ If anything goes wrong: `git reset --hard pre-rebase-backup`
 
 `line init` sets up:
 
-- **Statusline** — shows the station pipeline in Claude Code's status bar:
+- **Statusline** — shows the station graph in Claude Code's status bar. Linear pipelines render as a chain; forking pipelines render with branch connectors:
   ```
   main ─── security ✓ ── docs ⟳ ── style ·
+  ```
+  ```
+  main ─┬─ security ✓ ── style ·
+        └─ docs ⟳
   ```
   - When on a terminal station branch that's behind HEAD, displays a bold yellow warning: `⚠ use /line-rebase to pick up latest changes`
 - **Skills** — adds `/line-start` to run pending commits and `/line-rebase` for rebasing station branch changes onto their upstream
