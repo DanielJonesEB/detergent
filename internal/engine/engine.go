@@ -101,7 +101,6 @@ func (lm *LogManager) Close() error {
 }
 
 // RunOnce processes each station once and returns.
-// Independent stations at the same level run in parallel.
 // Individual station failures are logged but don't stop other stations.
 // Creates a temporary LogManager that is closed after processing.
 // Acquires a cross-process file lock so concurrent invocations (e.g. from
@@ -183,19 +182,14 @@ func RunOnceWithLogs(cfg *config.Config, repoDir string, logMgr *LogManager) err
 }
 
 type failedSet struct {
-	mu sync.Mutex
-	m  map[string]bool
+	m map[string]bool
 }
 
 func (f *failedSet) set(name string) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	f.m[name] = true
 }
 
 func (f *failedSet) has(name string) bool {
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	return f.m[name]
 }
 
