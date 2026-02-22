@@ -177,14 +177,19 @@ func RunOnceWithLogs(cfg *config.Config, repoDir string, logMgr *LogManager) err
 }
 
 type failedSet struct {
-	m map[string]bool
+	mu sync.Mutex
+	m  map[string]bool
 }
 
 func (f *failedSet) set(name string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.m[name] = true
 }
 
 func (f *failedSet) has(name string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	return f.m[name]
 }
 
