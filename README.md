@@ -165,6 +165,7 @@ If anything goes wrong: `git reset --hard pre-rebase-backup`
   ```
   - When on a terminal station branch that's behind HEAD, displays a bold yellow warning: `⚠ use /line-rebase to pick up latest changes`
 - **Skills** — adds `/line-start` to run pending commits and `/line-rebase` for rebasing station branch changes onto their upstream
+- **Post-commit hook** — if `stations` are configured, installs (or injects into an existing) `.git/hooks/post-commit` that runs `line run` in the background after every commit
 - **Pre-commit hook** — if `gates` are configured, installs (or injects into an existing) `.git/hooks/pre-commit` that runs `line gate` before every commit
 
 ### Statusline Symbols
