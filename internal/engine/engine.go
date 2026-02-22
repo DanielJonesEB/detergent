@@ -251,7 +251,7 @@ func processStation(cfg *config.Config, repo *gitops.Repo, repoDir string, stati
 
 	// Ensure output branch exists
 	if !repo.BranchExists(outputBranch) {
-		if err := repo.CreateBranch(outputBranch, watchedBranch); err != nil {
+		if err := repo.CreateBranch(outputBranch, head); err != nil {
 			return ctx.fail(err, fmt.Errorf("creating output branch %s: %w", outputBranch, err))
 		}
 	}
@@ -269,8 +269,8 @@ func processStation(cfg *config.Config, repo *gitops.Repo, repoDir string, stati
 
 	// Rebase output branch onto watched branch so prior station
 	// commits sit on top of the latest upstream state.
-	if err := rebaseWorktree(wtPath, watchedBranch); err != nil {
-		return ctx.fail(err, fmt.Errorf("rebasing %s onto %s: %w", outputBranch, watchedBranch, err))
+	if err := rebaseWorktree(wtPath, head); err != nil {
+		return ctx.fail(err, fmt.Errorf("rebasing %s onto %s: %w", outputBranch, head, err))
 	}
 
 	// Assemble context
