@@ -12,17 +12,13 @@ import (
 var _ = Describe("line run", func() {
 	var tmpDir string
 	var repoDir string
-	var configPath string
 
-	BeforeEach(func() {
-		tmpDir, repoDir = setupTestRepo("line-test-*")
-
-		// Write the config that uses a simple agent
-		configPath = filepath.Join(repoDir, "line.yaml")
-		writeFile(configPath, `
+	basicConfigFor := func(repoDir, agentCmd string) string {
+		p := filepath.Join(repoDir, "line.yaml")
+		writeFile(p, `
 agent:
   command: "sh"
-  args: ["-c", "echo 'reviewed by agent' > agent-review.txt"]
+  args: ["-c", "`+agentCmd+`"]
 
 settings:
   branch_prefix: "line/"
@@ -32,6 +28,17 @@ stations:
     watches: main
     prompt: "Review for security issues"
 `)
+		return p
+	}
+
+	configWithSettingsFor := func(repoDir, content string) string {
+		p := filepath.Join(repoDir, "line.yaml")
+		writeFile(p, content)
+		return p
+	}
+
+	BeforeEach(func() {
+		tmpDir, repoDir = setupTestRepo("line-test-*")
 	})
 
 	AfterEach(func() {
@@ -39,12 +46,14 @@ stations:
 	})
 
 	It("exits with code 0", func() {
+		configPath := basicConfigFor(repoDir, "echo 'reviewed by agent' > agent-review.txt")
 		cmd := exec.Command(binaryPath, "run", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
 	})
 
 	It("creates the output branch", func() {
+		configPath := basicConfigFor(repoDir, "echo 'reviewed by agent' > agent-review.txt")
 		cmd := exec.Command(binaryPath, "run", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
@@ -55,6 +64,7 @@ stations:
 	})
 
 	It("creates a commit on the output branch with the station tag", func() {
+		configPath := basicConfigFor(repoDir, "echo 'reviewed by agent' > agent-review.txt")
 		cmd := exec.Command(binaryPath, "run", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
@@ -65,6 +75,7 @@ stations:
 	})
 
 	It("includes the Triggered-By trailer", func() {
+		configPath := basicConfigFor(repoDir, "echo 'reviewed by agent' > agent-review.txt")
 		cmd := exec.Command(binaryPath, "run", "--path", configPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
@@ -75,20 +86,7 @@ stations:
 
 	It("pipes context to agent stdin", func() {
 		// Use an agent that reads from stdin and writes it to a file
-		stdinConfigPath := filepath.Join(repoDir, "line-stdin.yaml")
-		writeFile(stdinConfigPath, `
-agent:
-  command: "sh"
-  args: ["-c", "cat > stdin-received.txt"]
-
-settings:
-  branch_prefix: "line/"
-
-stations:
-  - name: security
-    watches: main
-    prompt: "Review for security issues"
-`)
+		stdinConfigPath := basicConfigFor(repoDir, "cat > stdin-received.txt")
 		cmd := exec.Command(binaryPath, "run", "--path", stdinConfigPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
@@ -102,20 +100,7 @@ stations:
 	})
 
 	It("uses default preamble when none configured", func() {
-		stdinConfigPath := filepath.Join(repoDir, "line-default-preamble.yaml")
-		writeFile(stdinConfigPath, `
-agent:
-  command: "sh"
-  args: ["-c", "cat > stdin-received.txt"]
-
-settings:
-  branch_prefix: "line/"
-
-stations:
-  - name: security
-    watches: main
-    prompt: "Review for security issues"
-`)
+		stdinConfigPath := basicConfigFor(repoDir, "cat > stdin-received.txt")
 		cmd := exec.Command(binaryPath, "run", "--path", stdinConfigPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
@@ -127,8 +112,7 @@ stations:
 	})
 
 	It("uses global preamble when configured", func() {
-		stdinConfigPath := filepath.Join(repoDir, "line-global-preamble.yaml")
-		writeFile(stdinConfigPath, `
+		stdinConfigPath := configWithSettingsFor(repoDir, `
 agent:
   command: "sh"
   args: ["-c", "cat > stdin-received.txt"]
@@ -155,8 +139,7 @@ stations:
 	})
 
 	It("uses per-station preamble over global preamble", func() {
-		stdinConfigPath := filepath.Join(repoDir, "line-station-preamble.yaml")
-		writeFile(stdinConfigPath, `
+		stdinConfigPath := configWithSettingsFor(repoDir, `
 agent:
   command: "sh"
   args: ["-c", "cat > stdin-received.txt"]
@@ -184,8 +167,7 @@ stations:
 	})
 
 	It("writes permissions settings to worktree when configured", func() {
-		permConfigPath := filepath.Join(repoDir, "line-perms.yaml")
-		writeFile(permConfigPath, `
+		permConfigPath := configWithSettingsFor(repoDir, `
 agent:
   command: "sh"
   args: ["-c", "cat .claude/settings.json > settings-snapshot.txt"]
@@ -220,20 +202,7 @@ stations:
 
 	It("does not write permissions when not configured", func() {
 		// Use the default config (no permissions block)
-		noPermConfigPath := filepath.Join(repoDir, "line-noperm.yaml")
-		writeFile(noPermConfigPath, `
-agent:
-  command: "sh"
-  args: ["-c", "test -f .claude/settings.json && echo EXISTS || echo MISSING"]
-
-settings:
-  branch_prefix: "line/"
-
-stations:
-  - name: security
-    watches: main
-    prompt: "Review for security issues"
-`)
+		noPermConfigPath := basicConfigFor(repoDir, "test -f .claude/settings.json && echo EXISTS || echo MISSING")
 		cmd := exec.Command(binaryPath, "run", "--path", noPermConfigPath)
 		output, err := cmd.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "output: %s", string(output))
@@ -245,20 +214,7 @@ stations:
 	})
 
 	It("strips CLAUDECODE env var from agent environment", func() {
-		envConfigPath := filepath.Join(repoDir, "line-env.yaml")
-		writeFile(envConfigPath, `
-agent:
-  command: "sh"
-  args: ["-c", "env > env-dump.txt"]
-
-settings:
-  branch_prefix: "line/"
-
-stations:
-  - name: security
-    watches: main
-    prompt: "Check env"
-`)
+		envConfigPath := basicConfigFor(repoDir, "env > env-dump.txt")
 		cmd := exec.Command(binaryPath, "run", "--path", envConfigPath)
 		cmd.Env = append(os.Environ(), "CLAUDECODE=some-value")
 		output, err := cmd.CombinedOutput()
@@ -272,6 +228,7 @@ stations:
 	})
 
 	It("is idempotent - running twice doesn't create duplicate commits", func() {
+		configPath := basicConfigFor(repoDir, "echo 'reviewed by agent' > agent-review.txt")
 		cmd1 := exec.Command(binaryPath, "run", "--path", configPath)
 		out1, err := cmd1.CombinedOutput()
 		Expect(err).NotTo(HaveOccurred(), "first run: %s", string(out1))
