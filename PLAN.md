@@ -112,7 +112,7 @@ Each station operates in its own git worktree. This allows:
 
 ---
 
-## Daemon Behavior
+## Runner Behavior
 
 ### Startup
 1. Parse configuration
@@ -256,5 +256,5 @@ The implementation is correct when:
 3. **Commit tagging**: All agent commits include the station tag in the message
 4. **Audit trail**: Git notes record when stations review commits without changes
 5. **Isolation**: Stations operate in separate worktrees without interference
-6. **Idempotency**: Running the daemon when nothing changed produces no new commits
+6. **Idempotency**: Running the runner when nothing changed produces no new commits
 7. **Recovery**: After an error, the next poll retries the failed work
