@@ -47,6 +47,24 @@ stations:
 
 Stations are processed as an ordered line: each station watches the one before it, and the first station watches the branch specified in `settings.watches` (defaults to `main`). Individual stations can override the global `command` and `args` to use a different agent or model (as shown with `docs` above).
 
+### Gates (Pre-commit Checks)
+
+Gates are synchronous quality checks (linters, formatters, type checkers) that run in your pre-commit hook — before any commit lands. Add a `gates` block to `line.yaml`:
+
+```yaml
+gates:
+  - name: lint
+    run: "golangci-lint run"
+  - name: fmt
+    run: "gofmt -l {staged}"
+```
+
+- Gates run in order and stop on first failure
+- `{staged}` is replaced with the space-separated list of staged file paths
+- Gates can be used with or without `agent`/`stations`
+
+Run `line init` to install the pre-commit hook automatically. The hook is idempotent — running `line init` again won't add duplicate entries.
+
 **Note:** Assembly Line automatically prepends a [default preamble](internal/config/config.go#L68) to every station prompt. The preamble tells the agent to proceed without asking questions and not to run `git commit` (Assembly Line commits changes automatically when the agent exits). You can override it globally with `preamble`, or per-station with a `preamble` field on individual stations:
 
 ```yaml
@@ -85,6 +103,9 @@ Models will absolutely forget things, especially if context is overloaded (there
 ## Usage
 
 ```bash
+# Run pre-commit quality gates manually
+line gate
+
 # Validate your config (defaults to line.yaml)
 line validate
 
@@ -152,6 +173,7 @@ If anything goes wrong: `git reset --hard pre-rebase-backup`
   ```
   - When on a terminal station branch that's behind HEAD, displays a bold yellow warning: `⚠ use /line-rebase to pick up latest changes`
 - **Skills** — adds `/line-start` to start the daemon as a background task and `/line-rebase` for rebasing station branch changes onto their upstream
+- **Pre-commit hook** — if `gates` are configured, installs (or injects into an existing) `.git/hooks/pre-commit` that runs `line gate` before every commit
 
 ### Statusline Symbols
 
