@@ -4,7 +4,7 @@ Deterministic agent invocation. Define a pipeline of agent calls that will get i
 
 Kinda like CI, but local.
 
-Everything is in Git, so you lose nothing. If you _also_ use [`claudit`](https://github.com/re-cinq/claudit), your agent can automatically attach chat history as Git Notes.
+Everything is in Git, so you lose nothing. If you _also_ use [`shift-log`](https://github.com/re-cinq/shift-log), your agent can automatically attach chat history as Git Notes.
 
 ## Installation
 
