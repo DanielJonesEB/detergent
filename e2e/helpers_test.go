@@ -112,7 +112,7 @@ func writeMockAgentScript(dir, filename, content string) string {
 
 // writeMockAgent writes a mock agent script that modifies files predictably.
 func writeMockAgent(dir string) string {
-	return writeMockAgentScript(dir, "mock-agent.sh", `#!/bin/sh
+	return writeMockAgentScript(dir, "mock-agent.sh", `#!/bin/bash
 # Mock agent: reads the prompt from the last argument, creates a file
 PROMPT="${@: -1}"
 echo "mock-agent ran with prompt: $PROMPT"
@@ -122,7 +122,7 @@ echo "agent was here: $PROMPT" >> agent-output.txt
 
 // writeFailingMockAgent writes a mock agent that exits with a non-zero code.
 func writeFailingMockAgent(dir string) string {
-	return writeMockAgentScript(dir, "failing-agent.sh", `#!/bin/sh
+	return writeMockAgentScript(dir, "failing-agent.sh", `#!/bin/bash
 # Failing mock agent: exits with non-zero status
 PROMPT="${@: -1}"
 echo "failing-agent ran with prompt: $PROMPT"
@@ -132,7 +132,7 @@ exit 1
 
 // writeSlowMockAgent writes a mock agent that sleeps for testing RUN-11.
 func writeSlowMockAgent(dir string) string {
-	return writeMockAgentScript(dir, "slow-agent.sh", `#!/bin/sh
+	return writeMockAgentScript(dir, "slow-agent.sh", `#!/bin/bash
 # Slow mock agent for testing process termination
 PROMPT="${@: -1}"
 echo "slow-agent started with prompt: $PROMPT"

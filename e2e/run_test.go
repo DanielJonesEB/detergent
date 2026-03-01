@@ -407,7 +407,7 @@ stations:
 	It("prepends preamble to agent prompt [RUN-12]", func() {
 		// Create an agent that captures its full prompt
 		captureAgent := filepath.Join(dir, "capture-agent.sh")
-		err := os.WriteFile(captureAgent, []byte(`#!/bin/sh
+		err := os.WriteFile(captureAgent, []byte(`#!/bin/bash
 # Capture the last argument (prompt) to a file
 echo "${@: -1}" > captured-prompt.txt
 `), 0o755)
@@ -451,7 +451,7 @@ stations:
 	// CFG-STN-3, CFG-STN-4: Custom station command and args
 	It("uses custom station command and args when configured [CFG-STN-3, CFG-STN-4]", func() {
 		customAgent := filepath.Join(dir, "custom-agent.sh")
-		err := os.WriteFile(customAgent, []byte(`#!/bin/sh
+		err := os.WriteFile(customAgent, []byte(`#!/bin/bash
 echo "custom-agent ran: ${@: -1}" >> custom-output.txt
 `), 0o755)
 		Expect(err).NotTo(HaveOccurred())

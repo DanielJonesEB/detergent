@@ -306,7 +306,7 @@ stations:
 	It("shows all stations as up to date after line-rebase picks up terminal station [STAT-9]", func() {
 		// Use an agent that writes to unique files per station (based on prompt)
 		// to avoid merge conflicts that would trigger RUN-6 resets.
-		agentScript := writeMockAgentScript(dir, "unique-agent.sh", `#!/bin/sh
+		agentScript := writeMockAgentScript(dir, "unique-agent.sh", `#!/bin/bash
 PROMPT="${@: -1}"
 FNAME="$(echo "$PROMPT" | tr ' ' '-').txt"
 echo "agent was here" >> "$FNAME"
