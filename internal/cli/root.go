@@ -1,41 +1,23 @@
 package cli
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
-// Version is set at build time via ldflags
-var Version = "dev"
-
-var configPath string
+var (
+	configPath string
+	Version    = "dev"
+)
 
 var rootCmd = &cobra.Command{
 	Use:   "line",
-	Short: "Orchestrate coding agents in a station-based pipeline",
-	Long: `Assembly Line orchestrates coding agents through a line of stations.
-Each station focuses on a single quality aspect (security, style,
-documentation, etc.) and processes code changes in sequence.
-
-Changes flow through the station line with Git providing the audit trail
-and intent preservation between agents.`,
+	Short: "Assembly line - automated tasks on commits via Git hooks",
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&configPath, "path", "p", "line.yaml", "Path to line config file")
-	rootCmd.AddCommand(versionCmd)
+	rootCmd.PersistentFlags().StringVarP(&configPath, "path", "p", "line.yaml", "path to config file")
 }
 
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print the version number",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("line %s\n", Version)
-	},
-}
-
-// Execute runs the root command
 func Execute() error {
 	return rootCmd.Execute()
 }

@@ -1,8 +1,20 @@
+version: "2"
+
 linters:
   enable:
     - errcheck
     - govet
     - staticcheck
+  settings:
+    errcheck:
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - fmt.Sscanf
+        - os.Setenv
+        - os.Unsetenv
+        - os.RemoveAll
 
 issues:
   exclude-rules:

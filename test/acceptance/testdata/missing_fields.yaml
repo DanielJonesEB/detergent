@@ -1,8 +1,0 @@
-agent:
-  command: ""
-
-stations:
-  - name: ""
-    prompt: "do something"
-  - name: security
-    prompt: ""

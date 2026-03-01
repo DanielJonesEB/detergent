@@ -1,227 +1,119 @@
 # Assembly Line
 
-Deterministic agent invocation. Define a pipeline of agent calls that will get invoked on every commit — in sequence or in parallel, depending on their dependencies. Get alerted via the Claude Code statusline when downstream agents make changes, and use the `/line-rebase` skill to automatically pull them in.
+A tool for running tasks on and after commit when working with Claude Code. It builds a CLI called `line`. The intention is to run local deterministic tools like linters as pre-commit hooks (called Gates), and then post-commit run Claude Code (or another command) against the new change (these are Stations). Stations run in an ordered list, and are implemented using Git branches.
 
-Kinda like CI, but local.
+Rather than expecting an agent to remember to do various checks, a user can 'hard code' a set of prompts to run against every commit. These might include DRYing out code, checking test coverage, updating docs.
 
-Everything is in Git, so you lose nothing. If you _also_ use [`shift-log`](https://github.com/re-cinq/shift-log), your agent can automatically attach chat history as Git Notes.
+## Configuration
 
-## Installation
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/re-cinq/assembly-line/master/scripts/install.sh | bash
-```
-
-Then, in your repo:
-
-```bash
-line init # Set up skills
-line run # Process pending commits
-line status # See what's going on
-line status -f -n 1 # Follow the status, refreshing every 1 second
-```
-
-## Quick Start
-
-Create a config file `line.yaml`:
+The tool is configured with YAML. All commands assume the config file is `line.yaml`; commands that need to reference the config accept `-p`/`--path` to specify a different path. A Git branch to watch must be configured (`watches`).
 
 ```yaml
 agent:
   command: claude
-  args: ["--dangerously-skip-permissions", "-p"]
+  args: ["--dangerously-skip-permissions", "--model", "sonnet", "-p"]
 
 settings:
-  watches: main
+  watches: master
 
-stations:
-  - name: security
-    prompt: "Review for security vulnerabilities. Fix any issues found."
-
-  - name: docs
-    prompt: "Ensure public functions have clear documentation."
-    args: ["--dangerously-skip-permissions", "--model", "haiku", "-p"]
-
-  - name: style
-    prompt: "Fix any code style issues."
-```
-
-By default, stations are processed as an ordered line: each station watches the one before it, and the first station watches the branch specified in `settings.watches` (defaults to `main`). Individual stations can override the global `command` and `args` to use a different agent or model (as shown with `docs` above).
-
-Stations can also set an explicit `watches` field to create non-linear pipelines. Stations at the same level of the dependency graph run in parallel:
-
-```yaml
-stations:
-  - name: security
-    prompt: "Review for security vulnerabilities."
-
-  - name: docs
-    watches: main        # watches main directly, runs in parallel with security
-    prompt: "Ensure public functions have clear documentation."
-
-  - name: style
-    watches: security    # runs after security, in parallel with docs
-    prompt: "Fix any code style issues."
-```
-
-`line validate` checks the config for cycles and other errors.
-
-### Gates (Pre-commit Checks)
-
-Gates are synchronous quality checks (linters, formatters, type checkers) that run in your pre-commit hook — before any commit lands. Add a `gates` block to `line.yaml`:
-
-```yaml
 gates:
   - name: lint
-    run: "golangci-lint run"
-  - name: fmt
-    run: "gofmt -l {staged}"
-```
-
-- Gates run in order and stop on first failure
-- `{staged}` is replaced with the space-separated list of staged file paths
-- Gates can be used with or without `agent`/`stations`
-
-Run `line init` to install the pre-commit hook automatically. The hook is idempotent — running `line init` again won't add duplicate entries.
-
-**Note:** Assembly Line automatically prepends a [default preamble](internal/config/config.go#L68) to every station prompt. The preamble tells the agent to proceed without asking questions and not to run `git commit` (Assembly Line commits changes automatically when the agent exits). You can override it globally with `preamble`, or per-station with a `preamble` field on individual stations:
-
-```yaml
-# Global override (applies to all stations)
-preamble: "You are a code review bot. Proceed without asking questions."
+    run: "golangci-lint run ./..."
 
 stations:
-  - name: security
-    prompt: "Review for security vulnerabilities."
-    # Per-station override (takes priority over global)
-    preamble: "You are a security specialist. Be thorough and cautious."
+  - name: deadcode
+    prompt: "If you use beads, act on the work immediately and do not exit until those beads have been resolved. Remove any unused code. Do not change any other files and do not push. Don't bother testing, we'll do that later."
+  - name: dry
+    args: ["--dangerously-skip-permissions", "--model", "haiku", "-p"]
+    prompt: "If you use beads, act on the work immediately and do not exit until those beads have been resolved. Deduplicate code. Do not change any other files and do not push. Don't bother testing, we'll do that later."
+  - name: test
+    args: ["--dangerously-skip-permissions", "--model", "haiku", "-p"]
+    prompt: "If you use beads, act on the work immediately and do not exit until those beads have been resolved. Run all the tests, fix any failures. Do not reduce test coverage. Do not change any other files and do not push."
+  - name: docs
+    prompt: "If you use beads, act on the work immediately and do not exit until those beads have been resolved. Ensure README is up to date with latest features. Don't change any other files and do not push."
 ```
 
-### Permissions
+### Gates
 
-If your agent is Claude Code, you can pre-approve tool permissions instead of using `--dangerously-skip-permissions`. Add an optional `permissions` block — line writes it as `.claude/settings.json` in each worktree before invoking the agent:
+An ordered list of Gates can be configured — each runs as a Git pre-commit hook.
 
-```yaml
-permissions:
-  allow:
-    - Edit
-    - Write
-    - "Bash(*)"
-```
+### Stations
 
-## Why?
+- A default agent `command` and `args` can be configured and are shared by all stations.
+- Each station can override the agent `command` and/or `args`.
+- Each station must have a `prompt`.
+- Station names must be unique; each maps to a Git branch (`line/stn/<name>`).
 
-Models will absolutely forget things, especially if context is overloaded (there's too much) or polluted (too many different topics). However, if you prompt them with a clear context, they'll spot what they overlooked straight away.
+## Commands
 
-### Why not...
+### `line init`
 
-* **...do it yourself?** As a human, trying to remember to run the same set of quality-check prompts before every commit is a hassle.
-* **...do it in CI?** Leaving these tasks until CI delays feedback, your agent might not be configured to read from CI, and sometimes you don't want to push.
-* **...use a Git hook?** Not being able to commit in a hurry would be inconvenient. Plus, with `line` you can tell your main agent to commit with `skip line` if you want.
+- Appends a Git pre-commit hook invoking `line gate`.
+- Preserves any existing Git pre-commit hooks.
+- Appends a Git post-commit hook invoking `line run`.
+- Converges on the desired state — re-running is safe; old or out-of-date config is updated.
+- Installs the `/line-rebase` and `/line-preview` skills.
+- Configures Claude Code to use `line statusline` for its statusline.
+- Adds `.gitignore` entries for any temporary files introduced by assembly-line.
 
-## Usage
+### `line remove`
 
-```bash
-# Run pre-commit quality gates manually
-line gate
+- Removes the assembly-line blocks from pre-commit and post-commit Git hooks, preserving any other hook content.
+- Removes the `/line-rebase` and `/line-preview` skill directories.
+- Removes the `statusLine` key from `.claude/settings.json`, preserving other settings.
+- Removes the assembly-line block from `.gitignore`, preserving other entries.
+- Safe to run even when assembly-line was never initialized (no-op).
 
-# Validate your config (defaults to line.yaml)
-line validate
+### `line run`
 
-# Process pending commits
-line run
+- Each station is executed in sequence.
+- Each station operates on its own branch; stations must not operate on any other branches.
+- Stations must not re-trigger `line run`.
+- A default preamble prompt is prepended to each station's configured prompt, instructing the agent not to commit.
+- Stations commit any changes made by the invoked agent/command on its branch.
+- Stations run in isolated ephemeral Git worktrees under the system temp dir, so the user can keep working in their repo while the line runs.
+- Stations 'just work' — if Git state is bad, they catch up to the watched branch and resume.
+- Changes to files listed in `.lineignore` (gitignore syntax) do not trigger the line.
+- Commits containing `[skip ci]`, `[ci skip]`, `[skip line]`, or `[line skip]` in the message do not trigger the line.
+- Line runs are independent of rebases on the watched branch.
+- If a new commit arrives while the line is running, all agents are stopped, existing station-branch commits are preserved, and the line restarts from the beginning with the latest commit.
+- A failed station blocks the line and is reported as 'failed'.
 
-# Check status of each station
-line status
+### `line status`
 
-# Live-updating status (like watch, tails active agent logs)
-line status -f
+- Prints a headed list of all stations, starting with the watched branch. For each station the shortref of HEAD is shown, along with a dirty-directory indicator.
+- Printed before the station list: `⏸` (grey) for an inactive line or `▶` (green) for an active line runner, followed by the config file name.
+- Per-station symbols and colour-coded states:
+  - ✓ **up to date** — the only commits between the station and the watched branch HEAD are skip-marker commits (green)
+  - ● **agent running** — an agent is currently running; shows uptime duration (orange)
+  - ○ **pending** — no agent running and station has not yet processed the latest commit (yellow)
+  - ✗ **failed** — station encountered an error (red)
+- `line status -f` refreshes every two seconds, flicker-free with a hidden cursor.
+- Status is computed on-demand rather than cached, so it is trustworthy and reliable.
 
-# View agent logs for a station
-line logs security
+### `line statusline`
 
-# Follow agent logs in real-time
-line logs -f security
+- Shows the same state as `line status` in a single-line format for Claude Code's statusline.
+- When the terminal station has commits not yet in the watched branch, prompts the user to use the `/line-rebase` skill to pick them up.
+- Provided by the `statusline` subcommand with no external dependencies.
 
-# Use a different config file
-line run --path my-config.yaml
+### `/line-rebase` Skill
 
-# Initialize Claude Code integration (statusline + skills)
-line init
-```
+- Safely stashes any current work on the watched branch, rebases from the terminal station branch to pick up the latest changes, then unstashes work in progress. No work is ever lost.
+- Commits picked up onto the watched branch are marked so they do not re-trigger the line.
 
-## How It Works
+### `/line-preview` Skill
 
-1. Assembly Line watches branches for new commits
-2. When a commit arrives, it creates a worktree for each triggered station
-3. The agent receives: the prompt + upstream commit messages + diffs
-4. Agent changes are committed with `[STATION]` tags and `Triggered-By:` trailers (pre-commit hooks are skipped — no agent is present after the runner exits)
-5. If no changes needed, a git note records the review
-6. Downstream stations see upstream commits and can build on them
-7. Stations at the same dependency level run in parallel; stations that depend on others run after them
-8. If `line run` is triggered while another run is already in progress (e.g. from rapid back-to-back commits), the second invocation silently skips — no races
-9. The statusline shows `✓` next to stations that are up to date — use `/line-rebase` to pull them back into your working branch
+- Shows a read-only summary of unpicked changes: what each station actually changed (content diffs), not commit history. All derived from Git on-demand with no state files.
 
-### Getting changes back
+### `line schema`
 
-Agent work accumulates on station branches (`line/security`, `line/style`, etc.). The `/line-rebase` skill merges the terminal station's branch back into main:
+Outputs the YAML configuration schema, intended to help coding agents write valid config.
 
-1. Finds the terminal station (the end of the line — nothing watches it)
-2. Verifies the line is complete (no stations still running or failed)
-3. Creates a backup branch (`pre-rebase-backup`) and stashes uncommitted work
-4. Rebases main onto the terminal branch, resolving conflicts if needed
-5. Restores stash and reports what happened
+### `line validate`
 
-If anything goes wrong: `git reset --hard pre-rebase-backup`
+Validates `line.yaml` and outputs specific, helpful error messages if the config is invalid. Intended for use by coding agents.
 
-**Resilience:** On startup, line checks for and auto-repairs `core.bare=true` git config corruption (a known VS Code / concurrent-write race condition). If detected, it silently repairs the config so commands continue to work without manual intervention.
+### `line explain`
 
-## Claude Code Integration
-
-`line init` sets up:
-
-- **Statusline** — shows the station graph in Claude Code's status bar. Linear pipelines render as a chain; forking pipelines render with branch connectors:
-  ```
-  main ─── security ✓ ── docs ⟳ ── style ·
-  ```
-  ```
-  main ─┬─ security ✓ ── style ·
-        └─ docs ⟳
-  ```
-  - When on a terminal station branch that's behind HEAD, displays a bold yellow warning: `⚠ use /line-rebase to pick up latest changes`
-- **Skills** — adds `/line-start` to run pending commits and `/line-rebase` for rebasing station branch changes onto their upstream
-- **Post-commit hook** — if `stations` are configured, installs (or injects into an existing) `.git/hooks/post-commit` that runs `line run` in the background after every commit
-- **Pre-commit hook** — if `gates` are configured, installs (or injects into an existing) `.git/hooks/pre-commit` that runs `line gate` before every commit
-
-### Statusline Symbols
-
-| Symbol | Meaning |
-|--------|---------|
-| `◎` | Change detected |
-| `⟳` | Agent running / committing |
-| `◯` | Pending (behind HEAD) |
-| `✗` | Failed |
-| `⊘` | Skipped |
-| `✓` | Done (up to date) |
-| `·` | Never run |
-
-## Git Conventions
-
-- **Branches**: `line/{station-name}` (configurable prefix)
-- **Commits**: `[SECURITY] Fix SQL injection in login` with `Triggered-By: abc123` trailer
-- **Notes**: `[SECURITY] Reviewed, no changes needed` when agent makes no changes
-- **Agent detection**: Runner commits are identified solely by the `Triggered-By:` trailer. `Co-Authored-By:` lines from AI coding tools (Claude Code, Copilot, Cursor) are ignored — those commits are processed normally by the station line
-- **Skipping processing**: Add `[skip ci]`, `[ci skip]`, `[skip line]`, or `[line skip]` to commit messages to prevent line from processing them
-
-## Development
-
-```bash
-make build    # Build binary (bin/line); auto-codesigns on macOS
-make install  # Install binary to $(go env GOBIN) or ~/go/bin
-make test     # Run acceptance tests
-make lint     # Run linter (requires golangci-lint)
-make fmt      # Format code
-```
-
-## License
-
-[AI Native Application License (AINAL) v2.0](LICENSE) ([source](https://github.com/re-cinq/ai-native-application-license))
+Outputs succinct but complete usage information about the tool — its purpose, commands, and config — for the benefit of coding agents. Like this README, but always available via CLI.

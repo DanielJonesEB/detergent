@@ -1,235 +1,231 @@
 package git
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
-
-	"github.com/re-cinq/assembly-line/internal/env"
-	"github.com/re-cinq/assembly-line/internal/fileutil"
 )
 
-// gitEnvPrefixes are environment variable prefixes that must be stripped from
-// child git processes. When line run is spawned by a post-commit hook,
-// git sets GIT_DIR in the hook environment. If inherited, child git commands
-// target the wrong repository/worktree, causing ENOTDIR or corrupt operations.
+// gitEnvPrefixes lists git environment variable prefixes that must be stripped
+// from child processes. When line is invoked from a git hook (e.g.
+// post-commit), git sets GIT_DIR and friends relative to the repo. If these
+// leak into worktree subprocesses, GIT_DIR=.git resolves to a *file* (not a
+// directory) inside the worktree, causing "index file open failed: Not a
+// directory".
 var gitEnvPrefixes = []string{
 	"GIT_DIR=",
 	"GIT_WORK_TREE=",
 	"GIT_INDEX_FILE=",
 	"GIT_OBJECT_DIRECTORY=",
 	"GIT_ALTERNATE_OBJECT_DIRECTORIES=",
+	"GIT_COMMON_DIR=",
 }
 
-// Retry constants for transient git errors.
-const (
-	retryInitialDelay = 200 * time.Millisecond
-	retryMaxAttempts  = 6
-	retryMultiplier   = 2
-)
-
-// transientPatterns are error substrings that indicate a retryable git failure.
-var transientPatterns = []string{
-	"index file open failed",
-	"index.lock",
-	"cannot lock ref",
+// Run executes a git command in the given directory.
+func Run(dir string, args ...string) (string, error) {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	cmd.Env = append(cleanGitEnv(os.Environ()), "GIT_TERMINAL_PROMPT=0")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("git %s: %s: %w", strings.Join(args, " "), strings.TrimSpace(string(out)), err)
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
-// isTransient returns true if the error message matches a known transient git failure.
-func isTransient(errMsg string) bool {
-	for _, p := range transientPatterns {
-		if strings.Contains(errMsg, p) {
-			return true
+// cleanGitEnv returns a copy of environ with hook-inherited git variables removed.
+func cleanGitEnv(environ []string) []string {
+	result := make([]string, 0, len(environ))
+	for _, e := range environ {
+		keep := true
+		for _, prefix := range gitEnvPrefixes {
+			if strings.HasPrefix(e, prefix) {
+				keep = false
+				break
+			}
+		}
+		if keep {
+			result = append(result, e)
 		}
 	}
-	return false
+	return result
 }
 
-// Repo wraps git operations for a repository.
-type Repo struct {
-	Dir string
-}
-
-// NewRepo creates a Repo for the given directory.
-func NewRepo(dir string) *Repo {
-	return &Repo{Dir: dir}
-}
-
-// sleepFunc is the function used for sleeping between retries.
-// Replaced in tests to avoid real delays.
-var sleepFunc = time.Sleep
-
-// cleanEnv returns os.Environ() with git-specific variables removed so child
-// git processes discover the repository from cmd.Dir rather than inheriting
-// a potentially wrong GIT_DIR from a hook environment.
-func cleanEnv() []string {
-	return env.FilterByPrefixes(gitEnvPrefixes...)
-}
-
-// run executes a git command in the repo directory.
-// Transient errors (index locks, ref locks) are retried with exponential backoff.
-// Git-specific environment variables (GIT_DIR, GIT_WORK_TREE, etc.) are stripped
-// so commands discover the repository from cmd.Dir, preventing misrouted operations
-// when line run is spawned from a post-commit hook with inherited GIT_DIR.
-func (r *Repo) run(args ...string) (string, error) {
-	delay := retryInitialDelay
-	for attempt := 0; attempt < retryMaxAttempts; attempt++ {
-		cmd := exec.Command("git", args...)
-		cmd.Dir = r.Dir
-		cmd.Env = cleanEnv()
-		out, err := cmd.CombinedOutput()
-		if err == nil {
-			return strings.TrimSpace(string(out)), nil
-		}
-		errMsg := strings.TrimSpace(string(out))
-		if !isTransient(errMsg) || attempt == retryMaxAttempts-1 {
-			return "", fmt.Errorf("git %s: %s: %w", strings.Join(args, " "), errMsg, err)
-		}
-		sleepFunc(delay)
-		delay *= retryMultiplier
-	}
-	// unreachable — loop always returns
-	return "", nil
-}
-
-// HeadCommit returns the commit hash at HEAD for a given branch.
-func (r *Repo) HeadCommit(branch string) (string, error) {
-	return r.run("rev-parse", branch)
+// CurrentBranch returns the current branch name.
+func CurrentBranch(dir string) (string, error) {
+	return Run(dir, "rev-parse", "--abbrev-ref", "HEAD")
 }
 
 // BranchExists checks if a branch exists.
-func (r *Repo) BranchExists(branch string) bool {
-	_, err := r.run("rev-parse", "--verify", branch)
+func BranchExists(dir, branch string) bool {
+	_, err := Run(dir, "rev-parse", "--verify", branch)
 	return err == nil
 }
 
 // CreateBranch creates a new branch from a starting point.
-func (r *Repo) CreateBranch(name, from string) error {
-	_, err := r.run("branch", name, from)
+func CreateBranch(dir, branch, startPoint string) error {
+	_, err := Run(dir, "branch", branch, startPoint)
 	return err
 }
 
-// CreateWorktree creates a git worktree for a branch.
-func (r *Repo) CreateWorktree(path, branch string) error {
-	_, err := r.run("worktree", "add", path, branch)
+// Merge merges a branch into the current branch.
+func Merge(dir, branch string) error {
+	_, err := Run(dir, "merge", branch, "--no-edit")
 	return err
 }
 
-// CommitsBetween returns commit hashes between two refs (exclusive of from, inclusive of to).
-// If from is empty, returns all commits up to `to`.
-func (r *Repo) CommitsBetween(from, to string) ([]string, error) {
-	var rangeSpec string
-	if from == "" {
-		rangeSpec = to
-	} else {
-		rangeSpec = from + ".." + to
+// MergeAbort aborts an in-progress merge.
+func MergeAbort(dir string) error {
+	_, err := Run(dir, "merge", "--abort")
+	return err
+}
+
+// Rebase rebases the current branch onto the given ref.
+func Rebase(dir, onto string) error {
+	_, err := Run(dir, "rebase", onto)
+	return err
+}
+
+// RebaseAbort aborts an in-progress rebase.
+func RebaseAbort(dir string) error {
+	_, err := Run(dir, "rebase", "--abort")
+	return err
+}
+
+// CommitAll stages all changes and commits with the given message.
+// It excludes the .line/ directory which contains runtime state.
+func CommitAll(dir, message string) error {
+	if _, err := Run(dir, "add", "-A"); err != nil {
+		return err
 	}
-	out, err := r.run("rev-list", rangeSpec)
+	// Unstage .line/ - it's runtime state, not project code
+	_, _ = Run(dir, "reset", "--", ".line/")
+	// Check if there's anything to commit
+	status, err := Run(dir, "status", "--porcelain")
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if out == "" {
-		return nil, nil
+	if status == "" {
+		return nil // Nothing to commit
 	}
-	return strings.Split(out, "\n"), nil
-}
-
-// CommitMessage returns the full commit message for a given hash.
-func (r *Repo) CommitMessage(hash string) (string, error) {
-	return r.run("log", "-1", "--format=%B", hash)
-}
-
-// AddNote adds a git note to a commit under the "line" namespace.
-func (r *Repo) AddNote(commit, message string) error {
-	_, err := r.run("notes", "--ref=line", "add", "-f", "-m", message, commit)
+	_, err = Run(dir, "commit", "-m", message)
 	return err
 }
 
-// EnsureIdentity sets user.name and user.email in the repo's local config
-// if they are not already resolvable (e.g. via global config or environment).
-// This prevents "Author identity unknown" errors in CI environments.
-func (r *Repo) EnsureIdentity() {
-	if _, err := r.run("config", "user.name"); err != nil {
-		_, _ = r.run("config", "user.name", "line")
-	}
-	if _, err := r.run("config", "user.email"); err != nil {
-		_, _ = r.run("config", "user.email", "line@localhost")
-	}
+// HeadShortRef returns the short ref of HEAD.
+func HeadShortRef(dir string) (string, error) {
+	return Run(dir, "rev-parse", "--short", "HEAD")
 }
 
-// WorktreePath returns the expected worktree path for a station.
-func WorktreePath(repoDir, branchPrefix, stationName string) string {
-	return fileutil.LineSubdir(repoDir, filepath.Join("worktrees", branchPrefix+stationName))
-}
-
-// FilesChangedInCommit returns the list of file paths changed in a single commit.
-// Uses diff-tree which works correctly for root commits (no parent).
-func (r *Repo) FilesChangedInCommit(hash string) ([]string, error) {
-	out, err := r.run("diff-tree", "--no-commit-id", "-r", "--name-only", hash)
-	if err != nil {
-		return nil, err
-	}
-	if out == "" {
-		return nil, nil
-	}
-	return strings.Split(out, "\n"), nil
-}
-
-// HasChanges checks if there are any uncommitted changes in the worktree.
-func (r *Repo) HasChanges() (bool, error) {
-	out, err := r.run("status", "--porcelain")
+// IsDirty returns true if the working tree has changes.
+func IsDirty(dir string) (bool, error) {
+	out, err := Run(dir, "status", "--porcelain")
 	if err != nil {
 		return false, err
 	}
-	return strings.TrimSpace(out) != "", nil
+	return out != "", nil
 }
 
-// StageAll stages all changes (including untracked files) in the worktree.
-func (r *Repo) StageAll() error {
-	_, err := r.run("add", "-A")
-	return err
-}
-
-// Commit creates a commit with the given message.
-// Uses --no-verify to skip pre-commit hooks since Assembly Line commits
-// after the agent has exited — no agent is available to fix hook failures.
-func (r *Repo) Commit(message string) error {
-	_, err := r.run("commit", "--no-verify", "-m", message)
-	return err
-}
-
-// ResetSoft performs a soft reset to the given ref, preserving file changes.
-func (r *Repo) ResetSoft(ref string) error {
-	_, err := r.run("reset", "--soft", ref)
-	return err
-}
-
-// abortRebase aborts any in-progress rebase, ignoring errors.
-func (r *Repo) abortRebase() {
-	_, _ = r.run("rebase", "--abort") // ignore error — fails if no rebase in progress
-}
-
-// Rebase rebases the current branch onto targetBranch.
-// If conflicts occur, aborts the rebase and hard resets to targetBranch.
-func (r *Repo) Rebase(targetBranch string) error {
-	// Abort any stale in-progress rebase from a previous interrupted run.
-	r.abortRebase()
-
-	_, err := r.run("rebase", targetBranch)
+// DiffFiles returns the list of changed file paths between two refs.
+func DiffFiles(dir, from, to string) ([]string, error) {
+	out, err := Run(dir, "diff", "--name-only", from, to)
 	if err != nil {
-		// Rebase conflict — abort and reset to target branch.
-		// Station branches are auto-generated; stale commits that
-		// conflict with upstream should be discarded so the agent
-		// can regenerate from a clean base.
-		r.abortRebase()
-
-		_, resetErr := r.run("reset", "--hard", targetBranch)
-		if resetErr != nil {
-			return fmt.Errorf("git rebase %s failed and reset also failed: %w", targetBranch, resetErr)
-		}
-		// Reset succeeded — branch now matches target, agent will redo work
+		return nil, err
 	}
-	return nil
+	if out == "" {
+		return nil, nil
+	}
+	return strings.Split(out, "\n"), nil
+}
+
+// LastCommitMessage returns the message of the most recent commit.
+func LastCommitMessage(dir string) (string, error) {
+	return Run(dir, "log", "-1", "--format=%s")
+}
+
+// StationBranchName returns the branch name for a station.
+func StationBranchName(name string) string {
+	return "line/stn/" + name
+}
+
+// ResetHard resets the current branch to the given ref.
+func ResetHard(dir, ref string) error {
+	_, err := Run(dir, "reset", "--hard", ref)
+	return err
+}
+
+// IsAncestor returns true if ancestor's HEAD is reachable from descendant.
+func IsAncestor(dir, ancestor, descendant string) bool {
+	_, err := Run(dir, "merge-base", "--is-ancestor", ancestor, descendant)
+	return err == nil
+}
+
+// HasCommitsBetween returns true if there are commits between from and to.
+func HasCommitsBetween(dir, from, to string) (bool, error) {
+	out, err := Run(dir, "rev-list", "--count", from+".."+to)
+	if err != nil {
+		return false, err
+	}
+	return out != "0", nil
+}
+
+// OnlySkipCommitsBetween returns true if from..to contains at least one commit
+// and every commit message contains a skip marker.
+func OnlySkipCommitsBetween(dir, from, to string, skipMarkers []string) bool {
+	out, err := Run(dir, "log", "--format=%s", from+".."+to)
+	if err != nil || out == "" {
+		return false
+	}
+	for _, subject := range strings.Split(out, "\n") {
+		hasMarker := false
+		for _, marker := range skipMarkers {
+			if strings.Contains(subject, marker) {
+				hasMarker = true
+				break
+			}
+		}
+		if !hasMarker {
+			return false
+		}
+	}
+	return true
+}
+
+// WorktreeBaseDir returns a deterministic temp directory path for worktrees
+// belonging to the given repo: /tmp/line-<8-char-sha256-of-abs-repo-path>/
+func WorktreeBaseDir(repoDir string) (string, error) {
+	abs, err := filepath.Abs(repoDir)
+	if err != nil {
+		return "", fmt.Errorf("resolving repo path: %w", err)
+	}
+	// Resolve symlinks to get a canonical path (e.g. /var -> /private/var on macOS)
+	abs, err = filepath.EvalSymlinks(abs)
+	if err != nil {
+		return "", fmt.Errorf("resolving symlinks: %w", err)
+	}
+	h := sha256.Sum256([]byte(abs))
+	tag := hex.EncodeToString(h[:])[:8]
+	return filepath.Join(os.TempDir(), "line-"+tag), nil
+}
+
+// AddWorktree creates a git worktree at worktreePath for the given branch.
+func AddWorktree(repoDir, worktreePath, branch string) error {
+	_, err := Run(repoDir, "worktree", "add", worktreePath, branch)
+	return err
+}
+
+// RemoveWorktree force-removes a git worktree.
+func RemoveWorktree(repoDir, worktreePath string) error {
+	_, err := Run(repoDir, "worktree", "remove", "--force", worktreePath)
+	return err
+}
+
+// PruneWorktrees prunes stale worktree bookkeeping entries.
+func PruneWorktrees(repoDir string) error {
+	_, err := Run(repoDir, "worktree", "prune")
+	return err
 }

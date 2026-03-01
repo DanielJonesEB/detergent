@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.24"
+          go-version: "1.25"
       - uses: golangci/golangci-lint-action@v6
         with:
           version: latest
@@ -30,11 +30,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.24"
+          go-version: "1.25"
       - name: Build binary
         run: CGO_ENABLED=0 go build -o bin/line ./cmd/line
-      - name: Run acceptance tests
-        run: go test ./test/acceptance/... -v
+      - name: Run e2e tests
+        run: go test ./e2e/... -v
 
   build:
     name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
@@ -56,7 +56,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.24"
+          go-version: "1.25"
       - name: Build
         env:
           GOOS: ${{ matrix.goos }}
@@ -72,60 +72,37 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.24"
-      - name: Run install script test
-        run: go test ./test/install/... -v -timeout 120s
-
-  integration:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master'
-    needs: [test]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.24"
-      - name: Build binary
-        run: CGO_ENABLED=0 go build -o bin/line ./cmd/line
-      - name: Run acceptance tests
-        env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-        run: go test ./test/acceptance/... -v
+          go-version: "1.25"
+      - name: Test install script syntax
+        run: bash -n scripts/install.sh
 
   release:
     name: Release
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master'
-    needs: [lint, test, build, install-test, integration]
+    needs: [lint, test, build, install-test]
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.24"
-
+          go-version: "1.25"
       - name: Get latest tag
         id: latest_tag
         run: |
           git fetch --tags
           TAG=$(git tag --sort=-v:refname | head -1)
           echo "tag=${TAG:-v0.0.0}" >> "$GITHUB_OUTPUT"
-
-      - name: Bump patch version
+      - name: Bump minor version
         id: bump
         run: |
           TAG="${{ steps.latest_tag.outputs.tag }}"
-          # Strip leading v
           VERSION="${TAG#v}"
           MAJOR=$(echo "$VERSION" | cut -d. -f1)
           MINOR=$(echo "$VERSION" | cut -d. -f2)
-          PATCH=$(echo "$VERSION" | cut -d. -f3)
-          NEW_TAG="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+          NEW_TAG="v${MAJOR}.$((MINOR + 1)).0"
           echo "new_tag=${NEW_TAG}" >> "$GITHUB_OUTPUT"
-
       - name: Check if tag exists
         id: check_tag
         run: |
@@ -134,13 +111,11 @@ jobs:
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
-
       - name: Create tag
         if: steps.check_tag.outputs.exists == 'false'
         run: |
           git tag "${{ steps.bump.outputs.new_tag }}"
           git push origin "${{ steps.bump.outputs.new_tag }}"
-
       - name: Run GoReleaser
         if: steps.check_tag.outputs.exists == 'false'
         uses: goreleaser/goreleaser-action@v6

@@ -1,232 +1,188 @@
 package cli
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"os/signal"
-	"strings"
+	"path/filepath"
 	"time"
 
 	"github.com/re-cinq/assembly-line/internal/config"
-	"github.com/re-cinq/assembly-line/internal/engine"
-	"github.com/re-cinq/assembly-line/internal/fileutil"
-	gitops "github.com/re-cinq/assembly-line/internal/git"
+	"github.com/re-cinq/assembly-line/internal/git"
+	"github.com/re-cinq/assembly-line/internal/runner"
+	"github.com/re-cinq/assembly-line/internal/state"
 	"github.com/spf13/cobra"
 )
 
-var (
-	statusFollow   bool
-	statusInterval float64
+// ANSI color codes for STAT-2 color coding
+const (
+	colorReset  = "\033[0m"
+	colorGreen  = "\033[32m"
+	colorOrange = "\033[33m"
+	colorYellow = "\033[93m"
+	colorRed    = "\033[31m"
+	colorGrey   = "\033[90m"
 )
 
-func init() {
-	statusCmd.Flags().BoolVarP(&statusFollow, "follow", "f", false, "Live-update status (like watch)")
-	statusCmd.Flags().Float64VarP(&statusInterval, "interval", "n", 2.0, "Seconds between updates (with --follow)")
-	rootCmd.AddCommand(statusCmd)
-}
+var followFlag bool
 
 var statusCmd = &cobra.Command{
 	Use:   "status",
-	Short: "Show the status of each station",
-	Args:  cobra.NoArgs,
+	Short: "Show the status of the assembly line",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, repoDir, err := loadConfigAndRepo(configPath)
+		cfg, err := config.Load(configPath)
 		if err != nil {
 			return err
 		}
 
-		if statusFollow {
-			return followStatus(cfg, repoDir)
+		if followFlag {
+			// Hide cursor and clear screen during follow mode; restore on exit or signal
+			fmt.Print("\033[?25l\033[2J")
+			showCursor := func() { fmt.Print("\033[?25h") }
+			defer showCursor()
+
+			sigCh := make(chan os.Signal, 1)
+			signal.Notify(sigCh, os.Interrupt)
+			go func() {
+				<-sigCh
+				showCursor()
+				os.Exit(0)
+			}()
 		}
-		return showStatus(cfg, repoDir)
+
+		for {
+			if followFlag {
+				// Move cursor to home position (no screen clear to avoid flicker)
+				fmt.Print("\033[H")
+			}
+
+			if err := printStatus(".", cfg, followFlag); err != nil {
+				return err
+			}
+
+			if followFlag {
+				// Clear from cursor to end of screen (remove stale lines)
+				fmt.Print("\033[J")
+			}
+
+			if !followFlag {
+				break
+			}
+			time.Sleep(2 * time.Second)
+		}
+		return nil
 	},
 }
 
-func followStatus(cfg *config.Config, repoDir string) error {
-	sigCh := setupSignalHandler()
-	defer signal.Stop(sigCh)
-
-	interval := time.Duration(statusInterval * float64(time.Second))
-	first := true
-
-	for {
-		var buf bytes.Buffer
-		if err := renderStatus(&buf, cfg, repoDir, true); err != nil {
-			fileutil.LogError("\nerror: %s", err)
-		}
-		output := buf.String()
-
-		// Move cursor home and clear screen on first render;
-		// subsequent renders move home and overwrite in place
-		// to avoid flicker while still refreshing log tails.
-		if first {
-			fmt.Print("\033[H\033[2J")
-			first = false
-		} else {
-			fmt.Print("\033[H")
-		}
-		// Append clear-to-end-of-line escape to each line so shorter
-		// lines fully overwrite longer ones from previous renders.
-		lines := strings.Split(output, "\n")
-		for i := range lines {
-			lines[i] += "\033[K"
-		}
-		output = strings.Join(lines, "\n")
-
-		fmt.Printf("Every %.1fs: line status\033[K\n\033[K\n", statusInterval)
-		fmt.Print(output)
-		// Clear from cursor to end of screen to remove stale lines
-		fmt.Print("\033[J")
-
-		select {
-		case <-sigCh:
-			fmt.Println()
-			return nil
-		case <-time.After(interval):
-		}
-	}
+// stationInfo holds the computed display state for a station.
+type stationInfo struct {
+	symbol    string
+	color     string
+	name      string    // "pending", "agent running", "failed", "up to date"
+	startTime time.Time // non-zero when agent is running
 }
 
-func showStatus(cfg *config.Config, repoDir string) error {
-	return renderStatus(os.Stdout, cfg, repoDir, false)
+// computeStationInfo returns the display state for a station based on process
+// and git state (STAT-5: on-demand computation).
+func computeStationInfo(dir string, station config.Station, watchedFullRef, watchedBranch string) stationInfo {
+	branchName := git.StationBranchName(station.Name)
+	if !git.BranchExists(dir, branchName) {
+		return stationInfo{symbol: "○", color: colorYellow, name: "pending"}
+	}
+
+	agentPID, startTime, _ := state.ReadStationPID(dir, station.Name)
+	if agentPID > 0 && state.IsProcessRunning(agentPID) {
+		return stationInfo{symbol: "●", color: colorOrange, name: "agent running", startTime: startTime}
+	}
+	if state.ReadStationFailed(dir, station.Name) {
+		return stationInfo{symbol: "✗", color: colorRed, name: "failed"}
+	}
+	if watchedFullRef != "" && git.IsAncestor(dir, watchedFullRef, branchName) {
+		return stationInfo{symbol: "✓", color: colorGreen, name: "up to date"}
+	}
+	// STAT-8: If the only commits between station and watched branch are
+	// skip-marker commits, the station is still up to date.
+	if watchedFullRef != "" && git.OnlySkipCommitsBetween(dir, branchName, watchedBranch, runner.SkipMarkers) {
+		return stationInfo{symbol: "✓", color: colorGreen, name: "up to date"}
+	}
+	return stationInfo{symbol: "○", color: colorYellow, name: "pending"}
 }
 
-func renderStatus(w io.Writer, cfg *config.Config, repoDir string, showLogs bool) error {
-	repo := gitops.NewRepo(repoDir)
+// formatUptime formats the duration since startTime as a human-readable string.
+func formatUptime(startTime time.Time) string {
+	d := time.Since(startTime)
+	s := int(d.Seconds())
+	if s < 60 {
+		return fmt.Sprintf("%ds", s)
+	}
+	m := s / 60
+	s = s % 60
+	if m < 60 {
+		return fmt.Sprintf("%dm %ds", m, s)
+	}
+	h := m / 60
+	m = m % 60
+	return fmt.Sprintf("%dh %dm", h, m)
+}
 
-	fmt.Fprintln(w, "Station Status")
-	fmt.Fprintln(w, "──────────────────────────────────────")
-
-	// Show the source branch as the first entry
-	sourceBranch := cfg.Settings.Watches
-	if head, err := repo.HeadCommit(sourceBranch); err == nil {
-		msg := short(head)
-		if dirty, derr := repo.HasChanges(); derr == nil && dirty {
-			msg += " (dirty)"
-		}
-		fmt.Fprintln(w, formatStatus(engine.StateIdle, "result", sourceBranch, msg))
+func printStatus(dir string, cfg *config.Config, clearEOL bool) error {
+	// When clearEOL is true (follow mode), append ANSI erase-to-end-of-line
+	// after each line to prevent stale characters from shorter redraws.
+	eol := "\n"
+	if clearEOL {
+		eol = "\033[K\n"
 	}
 
-	var activeStations []string
-
-	for _, c := range cfg.Stations {
-		watchedBranch := engine.ResolveWatchedBranch(cfg, c)
-
-		status, _ := engine.ReadStatus(repoDir, c.Name)
-
-		// If actively processing, show the granular state
-		if status != nil {
-			// Check for stale active states (process died)
-			if engine.IsActiveState(status.State) && !engine.IsProcessAlive(status.PID) {
-				msg := fmt.Sprintf("stale (process %d no longer running, was: %s)", status.PID, status.State)
-				fmt.Fprintln(w, formatStatus(engine.StateFailed, "", c.Name, msg))
-				continue
-			}
-
-			switch status.State {
-			case engine.StateChangeDetected:
-				msg := fmt.Sprintf("change detected at %s", short(status.HeadAtStart))
-				fmt.Fprintln(w, formatStatus(status.State, "", c.Name, msg))
-				activeStations = append(activeStations, c.Name)
-				continue
-			case engine.StateAgentRunning:
-				msg := fmt.Sprintf("agent running (since %s)", status.StartedAt)
-				fmt.Fprintln(w, formatStatus(status.State, "", c.Name, msg))
-				activeStations = append(activeStations, c.Name)
-				continue
-			case engine.StateCommitting:
-				fmt.Fprintln(w, formatStatus(status.State, "", c.Name, "committing changes"))
-				activeStations = append(activeStations, c.Name)
-				continue
-			case engine.StateFailed:
-				msg := fmt.Sprintf("failed: %s", status.Error)
-				fmt.Fprintln(w, formatStatus(status.State, "", c.Name, msg))
-				continue
-			case engine.StateSkipped:
-				msg := fmt.Sprintf("skipped: %s", status.Error)
-				fmt.Fprintln(w, formatStatus(status.State, "", c.Name, msg))
-				continue
-			}
-		}
-
-		lastSeen, err := engine.LastSeen(repoDir, c.Name)
-		if err != nil {
-			return err
-		}
-
-		head, err := repo.HeadCommit(watchedBranch)
-		if err != nil {
-			// Branch might not exist yet
-			msg := fmt.Sprintf("(not started - watched branch %s not found)", watchedBranch)
-			fmt.Fprintln(w, formatStatus("unknown", "", c.Name, msg))
-			continue
-		}
-
-		if lastSeen == "" {
-			fmt.Fprintln(w, formatStatus("pending", "", c.Name, "pending (never processed)"))
-		} else if lastSeen == head {
-			msg := fmt.Sprintf("caught up at %s", short(lastSeen))
-			fmt.Fprintln(w, formatStatus(engine.StateIdle, "result", c.Name, msg))
-		} else {
-			msg := fmt.Sprintf("pending (last: %s, head: %s)", short(lastSeen), short(head))
-			fmt.Fprintln(w, formatStatus("pending", "", c.Name, msg))
-		}
+	// STAT-3: Line runner indicator at the top
+	pid, _ := state.ReadPID(dir)
+	configName := filepath.Base(configPath)
+	if pid > 0 && state.IsProcessRunning(pid) {
+		fmt.Fprintf(os.Stdout, "%s▶%s %s%s", colorGreen, colorReset, configName, eol)
+	} else {
+		fmt.Fprintf(os.Stdout, "%s⏸%s %s%s", colorGrey, colorReset, configName, eol)
 	}
 
-	// In follow mode, show last few log lines for active stations
-	if showLogs && len(activeStations) > 0 {
-		for _, name := range activeStations {
-			logPath := engine.LogPathFor(name)
-			tail := readLastLines(logPath, 5)
-			if tail != "" {
-				fmt.Fprintf(w, "\n%s── %s logs %s(Claude Code batches output) ──%s\n%s", ansiBoldMagenta, name, ansiDim, ansiReset, tail)
+	// Blank line + column headers
+	fmt.Fprintf(os.Stdout, "%s", eol)
+	fmt.Fprintf(os.Stdout, "%-21s%-9s%s%s", "Stations", "Head", "Status", eol)
+
+	// Print watched branch
+	watchedRef, _ := git.HeadShortRef(dir)
+	watchedDirty, _ := git.IsDirty(dir)
+	dirtyStr := ""
+	if watchedDirty {
+		dirtyStr = "(dirty)"
+	}
+	fmt.Fprintf(os.Stdout, "%-21s%-9s%s%s", cfg.Settings.Watches, watchedRef, dirtyStr, eol)
+
+	// Get the watched branch full ref for ancestor checks (STAT-5: on-demand)
+	watchedFullRef, _ := git.Run(dir, "rev-parse", cfg.Settings.Watches)
+
+	// Print each station
+	for _, station := range cfg.Stations {
+		branchName := git.StationBranchName(station.Name)
+		ref := "-"
+
+		if git.BranchExists(dir, branchName) {
+			if branchRef, err := git.Run(dir, "rev-parse", "--short", branchName); err == nil {
+				ref = branchRef
 			}
 		}
+
+		info := computeStationInfo(dir, station, watchedFullRef, cfg.Settings.Watches)
+		extra := ""
+		if !info.startTime.IsZero() {
+			// STAT-7: Show uptime duration instead of PID/start time
+			extra = fmt.Sprintf(" (%s)", formatUptime(info.startTime))
+		}
+
+		fmt.Fprintf(os.Stdout, "%s  %s %-17s%-9s[%s]%s%s%s", info.color, info.symbol, station.Name, ref, info.name, extra, colorReset, eol)
 	}
 
 	return nil
 }
 
-// readLastLines reads the last n lines from the most recent run in a log file.
-// It finds the last "--- Processing" header and only considers lines after it,
-// so that status -f doesn't show stale output from previous runs.
-func readLastLines(path string, n int) string {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return ""
-	}
-	content := strings.TrimRight(string(data), "\n")
-	if content == "" {
-		return ""
-	}
-
-	lines := strings.Split(content, "\n")
-
-	// Find the last run header to skip previous runs' output
-	runStart := 0
-	for i, line := range lines {
-		if strings.HasPrefix(line, "--- Processing ") {
-			runStart = i + 1
-		}
-	}
-
-	// Only show lines from the current run (after the header)
-	if runStart >= len(lines) {
-		return ""
-	}
-	lines = lines[runStart:]
-
-	if len(lines) > n {
-		lines = lines[len(lines)-n:]
-	}
-	return strings.Join(lines, "\n") + "\n"
-}
-
-func short(hash string) string {
-	if len(hash) > 8 {
-		return hash[:8]
-	}
-	return hash
+func init() {
+	statusCmd.Flags().BoolVarP(&followFlag, "follow", "f", false, "refresh every 2 seconds")
+	rootCmd.AddCommand(statusCmd)
 }

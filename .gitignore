@@ -1,9 +1,11 @@
-bin/
-dist/
-.line/
-notes/
 /line
-/line.exe
-line-test
-.claudit/
-# test trigger
+/bin/
+/dist/
+
+# >>> assembly-line >>>
+/.line/
+# <<< assembly-line <<<
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db

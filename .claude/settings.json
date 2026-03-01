@@ -1,0 +1,6 @@
+{
+  "statusLine": {
+    "command": "line statusline",
+    "type": "command"
+  }
+}

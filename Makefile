@@ -10,7 +10,7 @@ build:
 	@if [ "$$(uname)" = "Darwin" ]; then codesign --force -s - $(BUILD_DIR)/$(BINARY_NAME); fi
 
 test:
-	go test ./test/acceptance/... -v
+	go test ./e2e/... -v
 
 lint:
 	golangci-lint run ./...

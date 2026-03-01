@@ -1,24 +1,24 @@
 package cli
 
 import (
-	"github.com/re-cinq/assembly-line/internal/engine"
+	"github.com/re-cinq/assembly-line/internal/config"
+	"github.com/re-cinq/assembly-line/internal/runner"
 	"github.com/spf13/cobra"
 )
 
-func init() {
-	rootCmd.AddCommand(runCmd)
-}
-
 var runCmd = &cobra.Command{
 	Use:   "run",
-	Short: "Process pending commits and exit",
-	Args:  cobra.NoArgs,
+	Short: "Run the assembly line pipeline (post-commit)",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, repoDir, err := loadConfigAndRepo(configPath)
+		cfg, err := config.Load(configPath)
 		if err != nil {
 			return err
 		}
 
-		return engine.RunOnce(cfg, repoDir)
+		return runner.Run(".", cfg)
 	},
+}
+
+func init() {
+	rootCmd.AddCommand(runCmd)
 }

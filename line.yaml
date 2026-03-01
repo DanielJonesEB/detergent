@@ -10,13 +10,9 @@ gates:
     run: "golangci-lint run ./..."
 
 stations:
-  - name: deadcode
-    prompt: "If you use beads, act on the work immediately and do not exit until those beads have been resolved. Remove any unused code. Do not change any other files and do not push. Don't bother testing, we'll do that later."
-  - name: dry
-    args: ["--dangerously-skip-permissions", "--model", "haiku", "-p"]
-    prompt: "If you use beads, act on the work immediately and do not exit until those beads have been resolved. Deduplicate code. Do not change any other files and do not push. Don't bother testing, we'll do that later."
-  - name: test
-    args: ["--dangerously-skip-permissions", "--model", "haiku", "-p"]
-    prompt: "If you use beads, act on the work immediately and do not exit until those beads have been resolved. Run all the tests, fix any failures. Do not reduce test coverage. Do not change any other files and do not push."
   - name: docs
-    prompt: "If you use beads, act on the work immediately and do not exit until those beads have been resolved. Ensure README is up to date with latest features. Don't change any other files and do not push."
+    prompt: "Check that README.md and the explain text in cmd/explain.go are up-to-date with TRUTH.md. If anything is missing or out of date, fix it. Do not change any other files and do not push."
+  - name: deadcode
+    prompt: "Delete any unused code, without reducing end-to-end test coverage. Do not commit or push."
+  - name: dry
+    prompt: "Deduplicate code, without reducing end-to-end test coverage. Do not commit or push."
