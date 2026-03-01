@@ -1,7 +1,6 @@
 package e2e_test
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,6 +9,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/re-cinq/assembly-line/internal/state"
 )
 
 // tempRepo creates a fresh git repo in a temp directory and returns its path.
@@ -201,21 +201,12 @@ func gitCommit(dir, message string) string {
 // killBackground kills background line processes for the given directory.
 // It kills the line runner (run.pid) and the named station (stations/<name>.pid).
 func killBackground(dir, stationName string) {
-	if data, err := os.ReadFile(filepath.Join(dir, ".line", "run.pid")); err == nil {
-		var pid int
-		fmt.Sscanf(strings.TrimSpace(string(data)), "%d", &pid)
-		if pid > 0 {
-			_ = syscall.Kill(-pid, syscall.SIGKILL)
-			_ = syscall.Kill(pid, syscall.SIGKILL)
-		}
+	if pid, err := state.ReadPID(dir); err == nil && pid > 0 {
+		_ = syscall.Kill(-pid, syscall.SIGKILL)
+		_ = syscall.Kill(pid, syscall.SIGKILL)
 	}
-	if data, err := os.ReadFile(filepath.Join(dir, ".line", "stations", stationName+".pid")); err == nil {
-		parts := strings.SplitN(strings.TrimSpace(string(data)), " ", 2)
-		var pid int
-		fmt.Sscanf(parts[0], "%d", &pid)
-		if pid > 0 {
-			_ = syscall.Kill(-pid, syscall.SIGKILL)
-			_ = syscall.Kill(pid, syscall.SIGKILL)
-		}
+	if pid, _, err := state.ReadStationPID(dir, stationName); err == nil && pid > 0 {
+		_ = syscall.Kill(-pid, syscall.SIGKILL)
+		_ = syscall.Kill(pid, syscall.SIGKILL)
 	}
 }

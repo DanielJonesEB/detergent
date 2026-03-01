@@ -22,10 +22,14 @@ func ensureDir(repoDir string) error {
 	return os.MkdirAll(dir, 0o755)
 }
 
-// ensureStationsDir creates the .line/stations directory and returns its path.
-func ensureStationsDir(repoDir string) (string, error) {
-	dir := filepath.Join(repoDir, stateDir, stationsDir)
-	return dir, os.MkdirAll(dir, 0o755)
+// ensureStationsDir creates the .line/stations directory.
+func ensureStationsDir(repoDir string) error {
+	return os.MkdirAll(filepath.Join(repoDir, stateDir, stationsDir), 0o755)
+}
+
+// stationFilePath returns the full path for a station's state file.
+func stationFilePath(repoDir, stationName, suffix string) string {
+	return filepath.Join(repoDir, stateDir, stationsDir, stationName+suffix)
 }
 
 // removeFile removes a file, returning nil if it doesn't exist.
@@ -96,18 +100,17 @@ func KillProcessGroup(pid int) error {
 // WriteStationPID writes a station's agent PID and start time.
 // Format: "PID TIMESTAMP" (e.g., "12345 2024-01-15T10:30:00Z")
 func WriteStationPID(repoDir, stationName string, pid int, startTime time.Time) error {
-	dir, err := ensureStationsDir(repoDir)
-	if err != nil {
+	if err := ensureStationsDir(repoDir); err != nil {
 		return err
 	}
 	content := fmt.Sprintf("%d %s", pid, startTime.Format(time.RFC3339))
-	return os.WriteFile(filepath.Join(dir, stationName+".pid"), []byte(content), 0o644)
+	return os.WriteFile(stationFilePath(repoDir, stationName, ".pid"), []byte(content), 0o644)
 }
 
 // ReadStationPID reads a station's agent PID and start time.
 // Returns pid=0 if no PID file exists.
 func ReadStationPID(repoDir, stationName string) (int, time.Time, error) {
-	path := filepath.Join(repoDir, stateDir, stationsDir, stationName+".pid")
+	path := stationFilePath(repoDir, stationName, ".pid")
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		return 0, time.Time{}, nil
@@ -129,7 +132,7 @@ func ReadStationPID(repoDir, stationName string) (int, time.Time, error) {
 
 // RemoveStationPID removes a station's PID file.
 func RemoveStationPID(repoDir, stationName string) error {
-	return removeFile(filepath.Join(repoDir, stateDir, stationsDir, stationName+".pid"))
+	return removeFile(stationFilePath(repoDir, stationName, ".pid"))
 }
 
 // KillAllStationAgents kills all running station agent processes and removes
@@ -156,21 +159,19 @@ func KillAllStationAgents(repoDir string) {
 
 // WriteStationFailed writes a marker indicating a station's agent failed.
 func WriteStationFailed(repoDir, stationName string) error {
-	dir, err := ensureStationsDir(repoDir)
-	if err != nil {
+	if err := ensureStationsDir(repoDir); err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dir, stationName+".failed"), []byte("1"), 0o644)
+	return os.WriteFile(stationFilePath(repoDir, stationName, ".failed"), []byte("1"), 0o644)
 }
 
 // ReadStationFailed returns true if a station has a failure marker.
 func ReadStationFailed(repoDir, stationName string) bool {
-	path := filepath.Join(repoDir, stateDir, stationsDir, stationName+".failed")
-	_, err := os.Stat(path)
+	_, err := os.Stat(stationFilePath(repoDir, stationName, ".failed"))
 	return err == nil
 }
 
 // RemoveStationFailed removes a station's failure marker.
 func RemoveStationFailed(repoDir, stationName string) error {
-	return removeFile(filepath.Join(repoDir, stateDir, stationsDir, stationName+".failed"))
+	return removeFile(stationFilePath(repoDir, stationName, ".failed"))
 }
