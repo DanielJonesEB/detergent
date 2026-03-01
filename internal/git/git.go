@@ -72,18 +72,6 @@ func CreateBranch(dir, branch, startPoint string) error {
 	return err
 }
 
-// Merge merges a branch into the current branch.
-func Merge(dir, branch string) error {
-	_, err := Run(dir, "merge", branch, "--no-edit")
-	return err
-}
-
-// MergeAbort aborts an in-progress merge.
-func MergeAbort(dir string) error {
-	_, err := Run(dir, "merge", "--abort")
-	return err
-}
-
 // Rebase rebases the current branch onto the given ref.
 func Rebase(dir, onto string) error {
 	_, err := Run(dir, "rebase", onto)
