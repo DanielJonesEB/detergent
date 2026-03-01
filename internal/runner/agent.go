@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"syscall"
 )
 
 const preamble = "IMPORTANT: Do NOT commit any changes. Do NOT run git commit. Make file changes only. The system will handle committing."
@@ -36,7 +35,7 @@ func startAgent(dir, command string, args []string, prompt string) (*agentProces
 	cmd.Env = append(env, "LINE_RUNNING=1")
 
 	// Set process group so we can kill the whole group
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	setProcGroup(cmd)
 
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("starting agent %q: %w", command, err)
