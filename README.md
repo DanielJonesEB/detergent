@@ -77,6 +77,7 @@ An ordered list of Gates can be configured — each runs as a Git pre-commit hoo
 - Commits containing `[skip ci]`, `[ci skip]`, `[skip line]`, or `[line skip]` in the message do not trigger the line.
 - Line runs are independent of rebases on the watched branch.
 - If a new commit arrives while the line is running, all agents are stopped, existing station-branch commits are preserved, and the line restarts from the beginning with the latest commit.
+- Stations rebase onto their predecessor (not merge) to keep history linear.
 - A failed station blocks the line and is reported as 'failed'.
 
 ### `line status`

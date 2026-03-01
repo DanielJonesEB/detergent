@@ -112,7 +112,8 @@ CONSTRAINTS
     the beginning with the latest commit.
   - Stations 'just work' — if Git state is bad they catch up to the watched
     branch and resume from there.
-  - Line runs are independent of rebases on the watched branch.`
+  - Line runs are independent of rebases on the watched branch.
+  - Stations rebase onto their predecessor (not merge) to keep history linear.`
 
 var explainCmd = &cobra.Command{
 	Use:   "explain",
